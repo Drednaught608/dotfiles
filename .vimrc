@@ -58,6 +58,8 @@
     nnoremap <Leader>b :ls<CR>
     nnoremap <Leader>v :DiffOrig<CR>
     nnoremap <Leader>V :windo diffthis<CR>
+    nnoremap <silent> <Leader>n :call ToggleNumberLines("all")<CR>
+    nnoremap <silent> <Leader>N :call ToggleNumberLines("friendly")<CR>
     nnoremap <silent> <Leader>e :Explore %:p:h<CR>
     nnoremap <silent> <Leader>d :bdelete<CR>
     nnoremap <silent> <Leader>D :bdelete!<CR>
@@ -76,6 +78,7 @@
     nnoremap <silent> <PageUp> :bprevious<CR>
     nnoremap <silent> <C-PageDown> :cfirst<CR>zvzz
     nnoremap <silent> <C-PageUp> :clast<CR>zvzz
+    " TODO - Fix Tab mapping and prevent conflict with ctrl + i jumplist
     nnoremap <silent> <Tab> :bnext<CR>
     nnoremap <silent> <S-Tab> :bprevious<CR>
     nnoremap <silent> <C-N> :cnext<CR>zvzz
@@ -86,8 +89,10 @@
     noremap <C-j> <C-w>j
     noremap <C-k> <C-w>k
     noremap <C-l> <C-w>l
-    vnoremap <down> :m '>+1<CR>gv=gv
-    vnoremap <up> :m '<-2<CR>gv=gv
+    nnoremap <C-down> :m .+1<CR>==
+    nnoremap <C-up> :m .-2<CR>==
+    vnoremap <C-down> :m '>+1<CR>gv=gv
+    vnoremap <C-up> :m '<-2<CR>gv=gv
     vnoremap Y "*y
     nnoremap Y y$
     nnoremap n nzvzz
@@ -113,6 +118,30 @@
             copen
         else
             cclose
+        endif
+    endfunction
+
+    " Line number toggle with different modes for friendly line view or hiding all
+    function! ToggleNumberLines(mode)
+        " Toggle showing of only line numbers
+        if a:mode == "friendly"
+            if &number == "nonumber" && &relativenumber == "relativenumber"
+                set number
+                set norelativenumber
+            else
+                set number
+                set relativenumber!
+            endif
+        
+        " Toggle hiding of both line numbers and relative line numbers
+        elseif a:mode == "all"
+            if &number == "nonumber" || &relativenumber == "norelativenumber"
+                set number
+                set relativenumber
+            else
+                set nonumber
+                set norelativenumber
+            endif
         endif
     endfunction
 
