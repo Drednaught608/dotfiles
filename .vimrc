@@ -78,9 +78,10 @@
     nnoremap <silent> <PageUp> :bprevious<CR>
     nnoremap <silent> <C-PageDown> :cfirst<CR>zvzz
     nnoremap <silent> <C-PageUp> :clast<CR>zvzz
-    " TODO - Fix Tab mapping and prevent conflict with ctrl + i jumplist
-    nnoremap <silent> <Tab> :bnext<CR>
-    nnoremap <silent> <S-Tab> :bprevious<CR>
+    nnoremap <silent> <S-l> :bnext<CR>
+    nnoremap <silent> <S-h> :bprevious<CR>
+    nnoremap <silent> <C-right> :bnext<CR>
+    nnoremap <silent> <C-left> :bprevious<CR>
     nnoremap <silent> <C-N> :cnext<CR>zvzz
     nnoremap <silent> <C-P> :cprevious<CR>zvzz
     nnoremap <C-d> <C-d>zz
@@ -123,7 +124,6 @@
 
     " Line number toggle with different modes for friendly line view or hiding all
     function! ToggleNumberLines(mode)
-        " Toggle showing of only line numbers
         if a:mode == "friendly"
             if &number == "nonumber" && &relativenumber == "relativenumber"
                 set number
@@ -132,8 +132,6 @@
                 set number
                 set relativenumber!
             endif
-        
-        " Toggle hiding of both line numbers and relative line numbers
         elseif a:mode == "all"
             if &number == "nonumber" || &relativenumber == "norelativenumber"
                 set number
