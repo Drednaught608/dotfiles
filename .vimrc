@@ -43,8 +43,9 @@
     let g:netrw_dirhistmax=0
     let g:netrw_localcopydircmd = 'cp -r'
     filetype on
-    filetype plugin on
     filetype indent on
+    filetype plugin on
+    set omnifunc=syntaxcomplete#Complete
     syntax on
     colorscheme habamax
     highlight ColorColumn ctermbg=gray
