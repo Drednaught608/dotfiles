@@ -40,6 +40,7 @@
     let &t_SI = "\e[5 q"
     let &t_EI = "\e[1 q"
     let g:netrw_banner = 0
+    let g:netrw_dirhistmax=0
     let g:netrw_localcopydircmd = 'cp -r'
     filetype on
     filetype plugin on
