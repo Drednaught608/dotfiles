@@ -71,7 +71,7 @@
     nnoremap <silent> <Leader>D :bdelete!<CR>
     nnoremap <silent> <Leader>B :bufdo bdelete<CR>
     nnoremap <silent> <Leader>y "*y
-    nnoremap <silent> <Leader>Y ^"*y$
+    nnoremap <silent> <Leader>Y ^"*yg_
     nnoremap <silent> <Leader>w :w<CR>
     nnoremap <silent> <Leader>q :q<CR>
     nnoremap <silent> <Leader>Q :qall!<CR>
@@ -100,7 +100,7 @@
     nnoremap <C-up> :m .-2<CR>==
     vnoremap <C-down> :m '>+1<CR>gv=gv
     vnoremap <C-up> :m '<-2<CR>gv=gv
-    nnoremap Y y$
+    nnoremap Y ^yg_
 
 "}
 
