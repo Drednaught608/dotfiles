@@ -60,9 +60,10 @@
     nnoremap <Leader>b :ls<CR>
     nnoremap <Leader>v :DiffOrig<CR>
     nnoremap <Leader>V :windo diffthis<CR>
-    nnoremap <Leader>r viw"hy:%s/<C-r>h//g<left><left>
-    nnoremap <Leader>R viW"hy:%s/<C-r>h//g<left><left>
-    vnoremap <Leader>r "hy:%s/<C-r>h//g<left><left>
+    nnoremap <Leader>r viw"hy:%s/<C-r>h\C//g<left><left>
+    nnoremap <Leader>R viW"hy:%s/<C-r>h\C//g<left><left>
+    vnoremap <Leader>r "hy:%s/<C-r>h\C//g<left><left>
+    vnoremap <Leader>y "*y
     nnoremap <silent> <Leader>n :call ToggleNumberLines("all")<CR>
     nnoremap <silent> <Leader>N :call ToggleNumberLines("friendly")<CR>
     nnoremap <silent> <Leader>e :Explore %:p:h<CR>
@@ -99,10 +100,7 @@
     nnoremap <C-up> :m .-2<CR>==
     vnoremap <C-down> :m '>+1<CR>gv=gv
     vnoremap <C-up> :m '<-2<CR>gv=gv
-    vnoremap Y "*y
     nnoremap Y y$
-    nnoremap n nzvzz
-    nnoremap N Nzvzz
 
 "}
 
