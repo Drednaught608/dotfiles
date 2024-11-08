@@ -34,6 +34,8 @@
     set wildmode=list:longest
     set wildignore=*.docx,*.jpg,*.png,*.gif,*.pdf,*.pyc,*.exe,*.flv,*.img,*.xlsx
     set gp=git\ grep\ -n\ --column
+    set shell=bash\ --login
+    set path+=**
 
     " Definitions & Misc.
     let mapleader = " "
@@ -42,6 +44,7 @@
     let g:netrw_banner = 0
     let g:netrw_dirhistmax=0
     let g:netrw_localcopydircmd = 'cp -r'
+    let g:netrw_liststyle=3
     filetype on
     filetype indent on
     filetype plugin on
@@ -66,7 +69,8 @@
     vnoremap <Leader>y "*y
     nnoremap <silent> <Leader>n :call ToggleNumberLines("all")<CR>
     nnoremap <silent> <Leader>N :call ToggleNumberLines("friendly")<CR>
-    nnoremap <silent> <Leader>e :Explore %:p:h<CR>
+    nnoremap <silent> <Leader>e :Explore<CR>
+    nnoremap <silent> <Leader>t :below terminal++rows=10<CR>
     nnoremap <silent> <Leader>d :bdelete<CR>
     nnoremap <silent> <Leader>D :bdelete!<CR>
     nnoremap <silent> <Leader>B :bufdo bdelete<CR>
@@ -96,6 +100,12 @@
     noremap <C-j> <C-w>j
     noremap <C-k> <C-w>k
     noremap <C-l> <C-w>l
+    tnoremap <C-h> <C-w>h
+    tnoremap <C-j> <C-w>j
+    tnoremap <C-k> <C-w>k
+    tnoremap <C-l> <C-w>l
+    tnoremap <C-n> <C-w>N
+    tnoremap <esc> <C-w>N
     nnoremap <C-down> :m .+1<CR>==
     nnoremap <C-up> :m .-2<CR>==
     vnoremap <C-down> :m '>+1<CR>gv=gv
