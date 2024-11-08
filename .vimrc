@@ -5,6 +5,7 @@
     set nocompatible
     set encoding=utf-8
     set belloff=all
+    set laststatus=2
     set showcmd
     set number
     set relativenumber
@@ -60,6 +61,7 @@
             \/lCursor-blinkwait500-blinkon500-blinkoff500,sm:block-Cursor-blinkwait100-blinkoff500-blinkon500
         highlight Cursor guifg=#222222 guibg=#A7A7A7
         set guifont=Consolas:h13:cANSI:qDRAFT
+        set laststatus=1
         set backspace=2
         cd ~
     endif
