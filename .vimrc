@@ -7,6 +7,7 @@
     set belloff=all
     set laststatus=2
     set showcmd
+    set ruler
     set number
     set relativenumber
     set clipboard=
@@ -59,10 +60,11 @@
             \/lCursor-blinkwait500-blinkon500-blinkoff500,ve:ver35-Cursor,o:hor50-Cursor,i-ci:ver25-Cursor
             \/lCursor-blinkwait500-blinkon500-blinkoff500,r-cr:hor20-Cursor
             \/lCursor-blinkwait500-blinkon500-blinkoff500,sm:block-Cursor-blinkwait100-blinkoff500-blinkon500
-        highlight Cursor guifg=#222222 guibg=#A7A7A7
+        highlight Cursor guifg=#222222 guibg=#ffffff
         set guifont=Consolas:h13:cANSI:qDRAFT
         set laststatus=1
         set backspace=2
+        set scrolloff=0
         cd ~
     endif
 
@@ -79,6 +81,7 @@
     nnoremap <Leader>R viW"hy:%s/<C-r>h\C//g<left><left>
     vnoremap <Leader>r "hy:%s/<C-r>h\C//g<left><left>
     vnoremap <Leader>y "*y
+    vnoremap <Leader>Y "*Y
     nnoremap <silent> <Leader>n :call ToggleNumberLines("all")<CR>
     nnoremap <silent> <Leader>N :call ToggleNumberLines("friendly")<CR>
     nnoremap <silent> <Leader>e :Explore<CR>
