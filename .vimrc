@@ -71,7 +71,7 @@
 " Keymappings {
 
     " Leader Mappings
-    nnoremap <Leader>p :pwd<CR>
+    nnoremap <Leader>l :pwd<CR>
     nnoremap <Leader>b :ls<CR>
     nnoremap <Leader>v :DiffOrig<CR>
     nnoremap <Leader>V :windo diffthis<CR>
