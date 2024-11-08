@@ -53,6 +53,16 @@
     colorscheme habamax
     highlight ColorColumn ctermbg=gray
     highlight CursorLine cterm=none
+    if has("gui_running") " gVim settings
+        set gcr=n-v-c:block-Cursor
+            \/lCursor-blinkwait500-blinkon500-blinkoff500,ve:ver35-Cursor,o:hor50-Cursor,i-ci:ver25-Cursor
+            \/lCursor-blinkwait500-blinkon500-blinkoff500,r-cr:hor20-Cursor
+            \/lCursor-blinkwait500-blinkon500-blinkoff500,sm:block-Cursor-blinkwait100-blinkoff500-blinkon500
+        highlight Cursor guifg=#222222 guibg=#A7A7A7
+        set guifont=Consolas:h13:cANSI:qDRAFT
+        set backspace=2
+        cd ~
+    endif
 
 "}
 
@@ -71,11 +81,15 @@
     nnoremap <silent> <Leader>N :call ToggleNumberLines("friendly")<CR>
     nnoremap <silent> <Leader>e :Explore<CR>
     nnoremap <silent> <Leader>t :below terminal++rows=10<CR>
+    nnoremap <silent> <Leader>o :edit ~/.vimrc<CR>
+    nnoremap <silent> <Leader>O :source ~/.vimrc<CR>
     nnoremap <silent> <Leader>d :bdelete<CR>
     nnoremap <silent> <Leader>D :bdelete!<CR>
     nnoremap <silent> <Leader>B :bufdo bdelete<CR>
     nnoremap <silent> <Leader>y "*y
     nnoremap <silent> <Leader>Y ^"*yg_
+    nnoremap <silent> <Leader>p "*p
+    nnoremap <silent> <Leader>P "*P
     nnoremap <silent> <Leader>w :w<CR>
     nnoremap <silent> <Leader>q :q<CR>
     nnoremap <silent> <Leader>Q :qall!<CR>
