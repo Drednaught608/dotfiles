@@ -65,6 +65,7 @@
         set laststatus=1
         set backspace=2
         set scrolloff=0
+        set guioptions-=T
         cd ~
     endif
 
@@ -86,6 +87,7 @@
     nnoremap <silent> <Leader>N :call ToggleNumberLines("friendly")<CR>
     nnoremap <silent> <Leader>e :Explore<CR>
     nnoremap <silent> <Leader>t :below terminal++rows=10<CR>
+    nnoremap <silent> <Leader>T :tabnew<CR>
     nnoremap <silent> <Leader>o :edit ~/.vimrc<CR>
     nnoremap <silent> <Leader>O :source ~/.vimrc<CR>
     nnoremap <silent> <Leader>d :bdelete<CR>
@@ -109,8 +111,8 @@
     nnoremap <silent> <C-PageUp> :clast<CR>zvzz
     nnoremap <silent> <S-l> :bnext<CR>
     nnoremap <silent> <S-h> :bprevious<CR>
-    nnoremap <silent> <C-right> :bnext<CR>
-    nnoremap <silent> <C-left> :bprevious<CR>
+    nnoremap <silent> <C-right> :tabnext<CR>
+    nnoremap <silent> <C-left> :tabprevious<CR>
     nnoremap <silent> <C-N> :cnext<CR>zvzz
     nnoremap <silent> <C-P> :cprevious<CR>zvzz
     nnoremap <C-d> <C-d>zz
