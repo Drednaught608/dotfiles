@@ -1,0 +1,22 @@
+[user]
+	name = Michael Hagan
+	email = 62200341+Drednaught608@users.noreply.github.com
+[filter "lfs"]
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+	clean = git-lfs clean -- %f
+[core]
+	editor = vim
+	excludesfile = ~/.gitignore
+	autocrlf = false
+	eol = lf
+	safecrlf = warn
+[pull]
+	rebase = false
+[fetch]
+	prune = false
+[rebase]
+	autoStash = false
+[init]
+	defaultBranch = main
