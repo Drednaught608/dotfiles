@@ -46,7 +46,6 @@
     let g:netrw_banner = 0
     let g:netrw_dirhistmax=0
     let g:netrw_localcopydircmd = 'cp -r'
-    let g:netrw_liststyle=3
     filetype on
     filetype indent on
     filetype plugin on
@@ -86,8 +85,8 @@
     nnoremap <silent> <Leader>n :call ToggleNumberLines("all")<CR>
     nnoremap <silent> <Leader>N :call ToggleNumberLines("friendly")<CR>
     nnoremap <silent> <Leader>e :Explore<CR>
-    nnoremap <silent> <Leader>t :below terminal++rows=10<CR>
-    nnoremap <silent> <Leader>T :tabnew<CR>
+    nnoremap <silent> <Leader>t :tabedit %<CR>
+    nnoremap <silent> <Leader>T :below terminal++rows=10<CR>
     nnoremap <silent> <Leader>o :edit ~/.vimrc<CR>
     nnoremap <silent> <Leader>O :source ~/.vimrc<CR>
     nnoremap <silent> <Leader>d :bdelete<CR>
@@ -111,6 +110,8 @@
     nnoremap <silent> <C-PageUp> :clast<CR>zvzz
     nnoremap <silent> <S-l> :bnext<CR>
     nnoremap <silent> <S-h> :bprevious<CR>
+    nnoremap <silent> <S-right> :bnext<CR>
+    nnoremap <silent> <S-left> :bprevious<CR>
     nnoremap <silent> <C-right> :tabnext<CR>
     nnoremap <silent> <C-left> :tabprevious<CR>
     nnoremap <silent> <C-N> :cnext<CR>zvzz
