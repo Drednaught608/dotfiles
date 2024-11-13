@@ -99,7 +99,7 @@
     nnoremap <silent> <Leader>p "*p
     nnoremap <silent> <Leader>P "*P
     nnoremap <silent> <Leader>w :w<CR>
-    nnoremap <silent> <Leader>W :w ++ff=unix<CR>
+    nnoremap <silent> <Leader>W :!dos2unix %<CR>
     nnoremap <silent> <Leader>q :q<CR>
     nnoremap <silent> <Leader>Q :qall!<CR>
     nnoremap <silent> <Leader>c :call ToggleQuickFix()<CR>
