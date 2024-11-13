@@ -36,7 +36,7 @@
     set wildmode=list:longest
     set wildignore=*.docx,*.jpg,*.png,*.gif,*.pdf,*.pyc,*.exe,*.flv,*.img,*.xlsx
     set gp=git\ grep\ -n\ --column
-    set shell=bash\ --login
+    set shell=bash
     set path+=**
 
     " Definitions & Misc.
@@ -86,8 +86,8 @@
     nnoremap <silent> <Leader>n :call ToggleNumberLines("all")<CR>
     nnoremap <silent> <Leader>N :call ToggleNumberLines("friendly")<CR>
     nnoremap <silent> <Leader>e :Explore<CR>
-    nnoremap <silent> <Leader>t :tabedit %<CR>
-    nnoremap <silent> <Leader>T :below terminal++rows=10<CR>
+    nnoremap <silent> <Leader>t :below terminal++rows=10<CR>
+    nnoremap <silent> <Leader>T :tabedit %<CR>
     nnoremap <silent> <Leader>o :edit ~/.vimrc<CR>
     nnoremap <silent> <Leader>O :source ~/.vimrc<CR>
     nnoremap <silent> <Leader>d :bdelete<CR>
@@ -98,6 +98,7 @@
     nnoremap <silent> <Leader>p "*p
     nnoremap <silent> <Leader>P "*P
     nnoremap <silent> <Leader>w :w<CR>
+    nnoremap <silent> <Leader>W :w ++ff=unix<CR>
     nnoremap <silent> <Leader>q :q<CR>
     nnoremap <silent> <Leader>Q :qall!<CR>
     nnoremap <silent> <Leader>c :call ToggleQuickFix()<CR>
