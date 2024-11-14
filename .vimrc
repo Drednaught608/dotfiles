@@ -98,8 +98,9 @@
     nnoremap <silent> <Leader>Y ^"*yg_
     nnoremap <silent> <Leader>p "*p
     nnoremap <silent> <Leader>P "*P
+    nnoremap <silent> <Leader>L :silent %s/\r//g<CR>:noh<CR><C-o>
     nnoremap <silent> <Leader>w :w<CR>
-    nnoremap <silent> <Leader>W :!dos2unix %<CR>
+    nnoremap <silent> <Leader>W :w<CR>:!dos2unix %<CR><CR>
     nnoremap <silent> <Leader>q :q<CR>
     nnoremap <silent> <Leader>Q :qall!<CR>
     nnoremap <silent> <Leader>c :call ToggleQuickFix()<CR>
