@@ -37,7 +37,6 @@
     set wildmode=list:longest
     set wildignore=*.docx,*.jpg,*.png,*.gif,*.pdf,*.pyc,*.exe,*.flv,*.img,*.xlsx
     set omnifunc=syntaxcomplete#Complete
-    set ffs=unix
     set gp=git\ grep\ -n\ --column
     set shell=bash
     set path+=**
@@ -63,11 +62,11 @@
             \/lCursor-blinkwait500-blinkon500-blinkoff500,sm:block-Cursor-blinkwait100-blinkoff500-blinkon500
         highlight Cursor guifg=#222222 guibg=#ffffff
         set guifont=Consolas:h13:cANSI:qDRAFT
-        set norelativenumber
         set laststatus=1
         set backspace=2
         set scrolloff=0
         set guioptions-=T
+        set mouse=a
         cd ~
     endif
 
@@ -88,6 +87,9 @@
     nnoremap <silent> <Leader>n :call ToggleNumberLines("all")<CR>
     nnoremap <silent> <Leader>N :call ToggleNumberLines("friendly")<CR>
     nnoremap <silent> <Leader>e :Explore<CR>
+    nnoremap <silent> <Leader>Eu :edit ++ff=unix<CR>
+    nnoremap <silent> <Leader>Ed :edit ++ff=dos<CR>
+    nnoremap <silent> <Leader>Em :edit ++ff=mac<CR>
     nnoremap <silent> <Leader>t :below terminal++rows=10<CR>
     nnoremap <silent> <Leader>T :tabedit %<CR>
     nnoremap <silent> <Leader>o :edit ~/.vimrc<CR>
@@ -103,7 +105,7 @@
     vnoremap <silent> <Leader>k K
     nnoremap <silent> <Leader>L :silent %s/\r//g<CR>:noh<CR><C-o>
     nnoremap <silent> <Leader>w :w<CR>
-    nnoremap <silent> <Leader>W :w<CR>:!dos2unix %<CR><CR>
+    nnoremap <silent> <Leader>W :w<CR>:!dos2unix "%"<CR><CR>
     nnoremap <silent> <Leader>q :q<CR>
     nnoremap <silent> <Leader>Q :qall!<CR>
     nnoremap <silent> <Leader>c :call ToggleQuickFix()<CR>
