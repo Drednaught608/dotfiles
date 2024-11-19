@@ -142,6 +142,7 @@
     nnoremap <C-up> :m .-2<CR>==
     vnoremap <C-down> :m '>+1<CR>gv=gv
     vnoremap <C-up> :m '<-2<CR>gv=gv
+    nnoremap U <C-r>
     nnoremap Y ^yg_
     nnoremap J 5j
     nnoremap K 5k
