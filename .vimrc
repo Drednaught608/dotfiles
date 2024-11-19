@@ -18,6 +18,7 @@
     set smartindent
     set expandtab
     set scrolloff=10
+    set ssl
     set nowrap
     set incsearch
     set ignorecase
@@ -35,6 +36,7 @@
     set wildmenu
     set wildmode=list:longest
     set wildignore=*.docx,*.jpg,*.png,*.gif,*.pdf,*.pyc,*.exe,*.flv,*.img,*.xlsx
+    set omnifunc=syntaxcomplete#Complete
     set ffs=unix
     set gp=git\ grep\ -n\ --column
     set shell=bash
@@ -50,7 +52,6 @@
     filetype on
     filetype indent on
     filetype plugin on
-    set omnifunc=syntaxcomplete#Complete
     syntax on
     colorscheme habamax
     highlight ColorColumn ctermbg=gray
@@ -76,7 +77,7 @@
 
     " Leader Mappings
     nnoremap <Leader>l :pwd<CR>
-    nnoremap <Leader>b :ls<CR>
+    nnoremap <Leader>b :ls<CR>:b<Space>
     nnoremap <Leader>v :DiffOrig<CR>
     nnoremap <Leader>V :windo diffthis<CR>
     nnoremap <Leader>r viw"hy:%s/<C-r>h\C//g<left><left>
@@ -98,6 +99,8 @@
     nnoremap <silent> <Leader>Y ^"*yg_
     nnoremap <silent> <Leader>p "*p
     nnoremap <silent> <Leader>P "*P
+    nnoremap <silent> <Leader>k K
+    vnoremap <silent> <Leader>k K
     nnoremap <silent> <Leader>L :silent %s/\r//g<CR>:noh<CR><C-o>
     nnoremap <silent> <Leader>w :w<CR>
     nnoremap <silent> <Leader>W :w<CR>:!dos2unix %<CR><CR>
@@ -110,10 +113,11 @@
     nnoremap <silent> <esc> :noh<cr><esc>
     nnoremap <silent> <PageDown> :bnext<CR>
     nnoremap <silent> <PageUp> :bprevious<CR>
+    nnoremap <silent> <End> :bprevious<CR>
     nnoremap <silent> <C-PageDown> :cfirst<CR>zvzz
     nnoremap <silent> <C-PageUp> :clast<CR>zvzz
-    nnoremap <silent> <S-l> :bnext<CR>
-    nnoremap <silent> <S-h> :bprevious<CR>
+    nnoremap <silent> <S-l> :tabnext<CR>
+    nnoremap <silent> <S-h> :tabprevious<CR>
     nnoremap <silent> <S-right> :bnext<CR>
     nnoremap <silent> <S-left> :bprevious<CR>
     nnoremap <silent> <C-right> :tabnext<CR>
@@ -137,6 +141,10 @@
     vnoremap <C-down> :m '>+1<CR>gv=gv
     vnoremap <C-up> :m '<-2<CR>gv=gv
     nnoremap Y ^yg_
+    nnoremap J 5j
+    nnoremap K 5k
+    vnoremap J 5j
+    vnoremap K 5k
 
 "}
 
