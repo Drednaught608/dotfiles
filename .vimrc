@@ -94,6 +94,8 @@
     nnoremap <silent> <Leader>T :tabedit %<CR>
     nnoremap <silent> <Leader>o :edit ~/.vimrc<CR>
     nnoremap <silent> <Leader>O :source ~/.vimrc<CR>
+    nnoremap <silent> <Leader>i :enew<CR>
+    nnoremap <silent> <Leader>I :tabnew<CR>
     nnoremap <silent> <Leader>d :bdelete<CR>
     nnoremap <silent> <Leader>D :bdelete!<CR>
     nnoremap <silent> <Leader>B :bufdo bdelete<CR>
@@ -142,6 +144,7 @@
     nnoremap <C-up> :m .-2<CR>==
     vnoremap <C-down> :m '>+1<CR>gv=gv
     vnoremap <C-up> :m '<-2<CR>gv=gv
+    vnoremap <silent> <C-s> :sort<CR>
     nnoremap U <C-r>
     nnoremap Y ^yg_
     nnoremap J 5j
