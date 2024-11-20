@@ -11,6 +11,7 @@ echo -ne "\e]0;Bash\a"
 alias open='explorer'
 alias cls='clear'
 alias rm='rm -d'
+alias rn='mv'
 alias ls='ls --color=auto --show-control-chars'
 alias la='ls -A'
 alias ll='ls -hAl'

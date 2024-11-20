@@ -162,6 +162,9 @@
         autocmd FileType netrw setlocal bufhidden=wipe
     augroup end
 
+    " Set bash syntax for all .bash_* files
+    au BufReadPost .bash_* set syntax=bash
+
 "}
 
 " Functions {
