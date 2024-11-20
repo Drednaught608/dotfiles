@@ -22,3 +22,8 @@ alias gdiff='git diff -U'
 
 # Normal Prompt
 PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+
+# Source local bash settings if they exist
+if [ -f ~/.bash_local ]; then
+    source ~/.bash_local
+fi
