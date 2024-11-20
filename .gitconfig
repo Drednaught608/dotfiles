@@ -1,6 +1,7 @@
 [user]
 	name = Michael Hagan
 	email = 62200341+Drednaught608@users.noreply.github.com
+	signingkey = ~/.ssh/id_ed25519
 [filter "lfs"]
 	smudge = git-lfs smudge -- %f
 	process = git-lfs filter-process
@@ -20,3 +21,7 @@
 	autoStash = false
 [init]
 	defaultBranch = main
+[gpg]
+	format = ssh
+[commit]
+	gpgSign = true
