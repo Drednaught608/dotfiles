@@ -202,6 +202,8 @@
             \/lCursor-blinkwait500-blinkon500-blinkoff500,sm:block-Cursor-blinkwait100-blinkoff500-blinkon500
         highlight Cursor guifg=#222222 guibg=#ffffff
         set guifont=Consolas:h13:cANSI:qDRAFT
+        set guitablabel=%t
+        set guioptions-=t
         set laststatus=1
         set backspace=2
         set scrolloff=0
