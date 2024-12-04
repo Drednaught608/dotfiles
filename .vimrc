@@ -70,7 +70,7 @@
         set mouse=a
         cd ~
         if has("win64") || has("win32") || has("win16")
-            set shell=C:\WINDOWS\system32/cmd.exe
+            set shell=C:\WINDOWS\system32\cmd.exe
         endif
     endif
 
