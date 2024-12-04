@@ -26,6 +26,7 @@
     set showmode
     set showmatch
     set hlsearch
+    set fileformats=unix,dos
     set history=10000
     set updatetime=300
     set cursorline
@@ -39,8 +40,10 @@
     set wildignore=*.docx,*.jpg,*.png,*.gif,*.pdf,*.pyc,*.exe,*.flv,*.img,*.xlsx
     set omnifunc=syntaxcomplete#Complete
     set gp=git\ grep\ -n\ --column
-    set shell=bash
     set path+=**
+    if &shell ==# "sh"
+        set shell=bash
+    endif
 
     " Definitions & Misc.
     let mapleader = " "
@@ -74,10 +77,12 @@
     nnoremap <silent> <Leader>n :call ToggleNumberLines("all")<CR>
     nnoremap <silent> <Leader>N :call ToggleNumberLines("friendly")<CR>
     nnoremap <silent> <Leader>e :Explore<CR>
+    nnoremap <silent> <Leader>EE :set fileformat?<CR>
+    nnoremap <silent> <Leader>Ee :set fileformat?<CR>
     nnoremap <silent> <Leader>Eu :edit ++ff=unix<CR>
     nnoremap <silent> <Leader>Ed :edit ++ff=dos<CR>
     nnoremap <silent> <Leader>Em :edit ++ff=mac<CR>
-    nnoremap <silent> <Leader>t :below terminal++rows=10<CR>
+    nnoremap <silent> <Leader>t :below terminal ++rows=10 ++close bash<CR>
     nnoremap <silent> <Leader>T :tabedit %<CR>
     nnoremap <silent> <Leader>o :edit ~/.vimrc<CR>
     nnoremap <silent> <Leader>O :source ~/.vimrc<CR>
@@ -202,10 +207,6 @@
         set scrolloff=0
         set guioptions-=T
         set mouse=a
-        cd ~
-        if has("win64") || has("win32") || has("win16")
-            set shell=C:\WINDOWS\system32\cmd.exe
-            nnoremap <silent> <Leader>t :below terminal ++rows=10 ++close bash<CR>
-        endif
     endif
+
 "}
