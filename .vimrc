@@ -56,23 +56,6 @@
     colorscheme habamax
     highlight ColorColumn ctermbg=gray
     highlight CursorLine cterm=none
-    if has("gui_running") " gVim settings
-        set gcr=n-v-c:block-Cursor
-            \/lCursor-blinkwait500-blinkon500-blinkoff500,ve:ver35-Cursor,o:hor50-Cursor,i-ci:ver25-Cursor
-            \/lCursor-blinkwait500-blinkon500-blinkoff500,r-cr:hor20-Cursor
-            \/lCursor-blinkwait500-blinkon500-blinkoff500,sm:block-Cursor-blinkwait100-blinkoff500-blinkon500
-        highlight Cursor guifg=#222222 guibg=#ffffff
-        set guifont=Consolas:h13:cANSI:qDRAFT
-        set laststatus=1
-        set backspace=2
-        set scrolloff=0
-        set guioptions-=T
-        set mouse=a
-        cd ~
-        if has("win64") || has("win32") || has("win16")
-            set shell=C:\WINDOWS\system32\cmd.exe
-        endif
-    endif
 
 "}
 
@@ -204,4 +187,25 @@
         endif
     endfunction
 
+"}
+
+" GVim settings {
+    if has("gui_running")
+        set gcr=n-v-c:block-Cursor
+            \/lCursor-blinkwait500-blinkon500-blinkoff500,ve:ver35-Cursor,o:hor50-Cursor,i-ci:ver25-Cursor
+            \/lCursor-blinkwait500-blinkon500-blinkoff500,r-cr:hor20-Cursor
+            \/lCursor-blinkwait500-blinkon500-blinkoff500,sm:block-Cursor-blinkwait100-blinkoff500-blinkon500
+        highlight Cursor guifg=#222222 guibg=#ffffff
+        set guifont=Consolas:h13:cANSI:qDRAFT
+        set laststatus=1
+        set backspace=2
+        set scrolloff=0
+        set guioptions-=T
+        set mouse=a
+        cd ~
+        if has("win64") || has("win32") || has("win16")
+            set shell=C:\WINDOWS\system32\cmd.exe
+            nnoremap <silent> <Leader>t :below terminal ++rows=10 ++close bash<CR>
+        endif
+    endif
 "}
