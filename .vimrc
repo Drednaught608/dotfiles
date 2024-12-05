@@ -192,6 +192,20 @@
         endif
     endfunction
 
+    " Bash terminal Shortcut aliases
+    function! BashTerminal(...)
+        let args = a:000
+        if args[0] ==# ""
+            below terminal ++rows=10 ++close bash
+        else
+            execute 'below terminal ++rows=10 bash --rcfile ~/.bashrc -ci "' .. args[0] .. '"'
+        endif
+        echo
+    endfunction
+    command! -nargs=? Terminal call BashTerminal(<q-args>)
+    command! -nargs=? Term call BashTerminal(<q-args>)
+
+
 "}
 
 " GVim settings {
