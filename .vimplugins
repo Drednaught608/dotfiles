@@ -1,0 +1,11 @@
+junegunn/goyo.vim
+tpope/vim-commentary
+ap/vim-css-color
+tpope/vim-dispatch
+tpope/vim-fugitive
+airblade/vim-gitgutter
+ludovicchabant/vim-gutentags
+Drednaught608/vim-highlightedyank
+RRethy/vim-illuminate
+tpope/vim-surround
+tpope/vim-vinegar
