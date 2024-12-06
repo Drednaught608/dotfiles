@@ -23,6 +23,7 @@ while read p; do
 
     if [ -d "$PATH1/$DIR/.git" ]; then
         echo -ne "${CYAN}~/.vim:     ${NC}"
+        git -C $PATH1/$DIR/ reset --hard HEAD >/dev/null
         git -C $PATH1/$DIR/ pull
     else
         echo -ne "${CYAN}~/.vim:     ${NC}"
@@ -31,6 +32,7 @@ while read p; do
 
     if [ -d "$PATH2/$DIR/.git" ]; then
         echo -ne "${CYAN}~/vimfiles: ${NC}"
+        git -C $PATH2/$DIR/ reset --hard HEAD >/dev/null
         git -C $PATH2/$DIR/ pull
     else
         echo -ne "${CYAN}~/vimfiles: ${NC}"
