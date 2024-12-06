@@ -2,11 +2,12 @@
 
 GREEN='\033[0;32m'
 CYAN='\033[0;36m'
+YELLOW='\e[0;33m'
 NC='\033[0m' # No Color
 
 PLUGNUM="$(wc --lines ~/.vimplugins | grep -o '[0-9]*')"
 
-echo -e "\nStarting sync of $PLUGNUM Vim plugins\n"
+echo -e "\n${YELLOW}Starting sync of $PLUGNUM Vim plugins${NC}\n"
 mkdir -p ~/.vim/pack/plugins/start/ ~/vimfiles/pack/plugins/start/
 
 counter=1
@@ -45,4 +46,4 @@ while read p; do
 done < "$p"
 
 echo "========================================="
-echo -e "\nFinished syncing of $PLUGNUM Vim plugins.\n"
+echo -e "\n${YELLOW}Finished syncing of $PLUGNUM Vim plugins.${NC}\n"
