@@ -1,0 +1,18 @@
+" Settings / Definitions {
+
+    " Settings
+    let g:highlightedyank_highlight_duration = 200
+
+"}
+
+" Keymappings {
+
+    " Leader Mappings
+    nnoremap <silent> <Leader>gg :GitGutterSignsToggle<CR>
+    nnoremap <silent> <Leader>; :GitGutterNextHunk<CR>
+    nnoremap <silent> <Leader>, :GitGutterPrevHunk<CR>
+    nnoremap <silent> <Leader>gp :GitGutterPreviewHunk<CR><C-w>j
+    nnoremap <silent> <Leader>gu :GitGutterUndoHunk<CR>
+    nnoremap <silent> <Leader>gv :GitGutterDiffOrig<CR>
+
+"}

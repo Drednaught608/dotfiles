@@ -155,7 +155,7 @@
         autocmd FileType netrw setlocal bufhidden=wipe
     augroup end
 
-    " Set bash syntax for all .bash_* files
+    " Set syntax for custom file formats
     au BufReadPost .bash_* set syntax=bash
 
 "}
@@ -224,4 +224,13 @@
         set guioptions-=T
         set mouse=a
     endif
+"}
+
+" Misc. {
+
+    " Custom plugin settings sourced if it exists
+    if filereadable(expand("~/.vimrc_plugins"))
+        source ~/.vimrc_plugins
+    endif
+
 "}

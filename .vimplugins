@@ -5,7 +5,7 @@ tpope/vim-dispatch
 tpope/vim-fugitive
 airblade/vim-gitgutter
 ludovicchabant/vim-gutentags
-Drednaught608/vim-highlightedyank
+machakann/vim-highlightedyank
 RRethy/vim-illuminate
 tpope/vim-surround
 tpope/vim-vinegar
