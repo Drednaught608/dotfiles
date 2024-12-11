@@ -8,5 +8,6 @@ airblade/vim-gitgutter
 ludovicchabant/vim-gutentags
 machakann/vim-highlightedyank
 RRethy/vim-illuminate
+google/vim-searchindex
 tpope/vim-surround
 tpope/vim-vinegar

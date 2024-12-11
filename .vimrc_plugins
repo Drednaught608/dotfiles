@@ -1,6 +1,7 @@
 " Settings / Definitions {
 
     " Settings
+    set shortmess+=S
     let g:highlightedyank_highlight_duration = 200
 
 "}
