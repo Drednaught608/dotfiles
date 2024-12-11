@@ -85,7 +85,7 @@
     nnoremap <silent> <Leader>t :below terminal ++rows=10 ++close bash<CR>
     nnoremap <silent> <Leader>T :tabedit %<CR>
     nnoremap <silent> <Leader>o :edit ~/.vimrc<CR>
-    nnoremap <silent> <Leader>O :source ~/.vimrc<CR>
+    nnoremap <silent> <Leader>O :source ~/.vimrc<CR>:noh<CR>
     nnoremap <silent> <Leader>i :enew<CR>
     nnoremap <silent> <Leader>I :tabnew<CR>
     nnoremap <silent> <Leader>d :bdelete<CR>
