@@ -72,6 +72,7 @@
     nnoremap <Leader>r viw"hy:%s/<C-r>h\C//g<left><left>
     nnoremap <Leader>R viW"hy:%s/<C-r>h\C//g<left><left>
     vnoremap <Leader>r "hy:%s/<C-r>h\C//g<left><left>
+    vnoremap <Leader>* y/\V<C-R>=escape(@",'/\')<CR>\C<CR>
     vnoremap <Leader>y "*y
     vnoremap <Leader>Y "*Y
     nnoremap <silent> <Leader>n :call ToggleNumberLines("all")<CR>
@@ -137,7 +138,6 @@
     vnoremap <C-down> :m '>+1<CR>gv=gv
     vnoremap <C-up> :m '<-2<CR>gv=gv
     vnoremap <silent> <C-s> :sort<CR>
-    vnoremap * y/\V<C-R>=escape(@",'/\')<CR><CR>
     nnoremap U <C-r>
     nnoremap Y ^yg_
     nnoremap J 5j
