@@ -106,7 +106,7 @@
     nnoremap <silent> <Leader>C :cclose<CR>:silent cfdo bdelete<CR>:silent cfirst<CR>:silent bdelete<CR>
 
     " Keyboard Mappings
-    nnoremap <silent> <esc> :noh<cr><esc>
+    nnoremap <silent> <esc> :noh<CR>:echo<CR><esc>
     nnoremap <silent> <PageDown> :bnext<CR>
     nnoremap <silent> <PageUp> :bprevious<CR>
     nnoremap <silent> <End> :bprevious<CR>
