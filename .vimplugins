@@ -1,4 +1,5 @@
 junegunn/goyo.vim
+markonm/traces.vim
 tpope/vim-commentary
 ap/vim-css-color
 tpope/vim-dispatch
