@@ -110,16 +110,16 @@
     nnoremap <silent> <PageDown> :bnext<CR>
     nnoremap <silent> <PageUp> :bprevious<CR>
     nnoremap <silent> <End> :bprevious<CR>
-    nnoremap <silent> <C-PageDown> :cfirst<CR>zvzz
-    nnoremap <silent> <C-PageUp> :clast<CR>zvzz
+    nnoremap <silent> <C-PageUp> :cfirst<CR>zv
+    nnoremap <silent> <C-PageDown> :clast<CR>zv
     nnoremap <silent> <S-l> :tabnext<CR>
     nnoremap <silent> <S-h> :tabprevious<CR>
     nnoremap <silent> <S-right> :bnext<CR>
     nnoremap <silent> <S-left> :bprevious<CR>
     nnoremap <silent> <C-right> :tabnext<CR>
     nnoremap <silent> <C-left> :tabprevious<CR>
-    nnoremap <silent> <C-N> :cnext<CR>zvzz
-    nnoremap <silent> <C-P> :cprevious<CR>zvzz
+    nnoremap <silent> <C-N> :cnext<CR>zv
+    nnoremap <silent> <C-P> :cprevious<CR>zv
     nnoremap <C-d> <C-d>zz
     nnoremap <C-u> <C-u>zz
     noremap <C-h> <C-w>h
