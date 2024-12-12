@@ -113,8 +113,8 @@
     nnoremap <silent> <End> :silent bprevious<CR>
     nnoremap <silent> <C-PageUp> :cfirst<CR>zv
     nnoremap <silent> <C-PageDown> :clast<CR>zv
-    nnoremap <silent> <S-l> :silent tabnext<CR>
-    nnoremap <silent> <S-h> :silent tabprevious<CR>
+    nnoremap <silent> <S-l> :silent bnext<CR>
+    nnoremap <silent> <S-h> :silent bprevious<CR>
     nnoremap <silent> <S-right> :silent bnext<CR>
     nnoremap <silent> <S-left> :silent bprevious<CR>
     nnoremap <silent> <C-right> :silent tabnext<CR>
