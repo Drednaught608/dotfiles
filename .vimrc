@@ -84,13 +84,13 @@
     nnoremap <silent> <Leader>Ed :edit ++ff=dos<CR>
     nnoremap <silent> <Leader>Em :edit ++ff=mac<CR>
     nnoremap <silent> <Leader>t :below terminal ++rows=10 ++close bash<CR>
-    nnoremap <silent> <Leader>T :tabedit %<CR>
-    nnoremap <silent> <Leader>o :edit ~/.vimrc<CR>
+    nnoremap <silent> <Leader>T :silent tabedit %<CR>
+    nnoremap <silent> <Leader>o :silent edit ~/.vimrc<CR>
     nnoremap <silent> <Leader>O :source ~/.vimrc<CR>:noh<CR>
-    nnoremap <silent> <Leader>i :enew<CR>
-    nnoremap <silent> <Leader>I :tabnew<CR>
-    nnoremap <silent> <Leader>d :bdelete<CR>
-    nnoremap <silent> <Leader>D :bdelete!<CR>
+    nnoremap <silent> <Leader>i :silent enew<CR>
+    nnoremap <silent> <Leader>I :silent tabnew<CR>
+    nnoremap <silent> <Leader>d :silent bdelete<CR>
+    nnoremap <silent> <Leader>D :silent bdelete!<CR>
     nnoremap <silent> <Leader>B :bufdo bdelete<CR>
     nnoremap <silent> <Leader>y "*y
     nnoremap <silent> <Leader>Y ^"*yg_
@@ -108,17 +108,17 @@
 
     " Keyboard Mappings
     nnoremap <silent> <esc> :noh<CR>:echo<CR><esc>
-    nnoremap <silent> <PageDown> :bnext<CR>
-    nnoremap <silent> <PageUp> :bprevious<CR>
-    nnoremap <silent> <End> :bprevious<CR>
+    nnoremap <silent> <PageDown> :silent bnext<CR>
+    nnoremap <silent> <PageUp> :silent bprevious<CR>
+    nnoremap <silent> <End> :silent bprevious<CR>
     nnoremap <silent> <C-PageUp> :cfirst<CR>zv
     nnoremap <silent> <C-PageDown> :clast<CR>zv
-    nnoremap <silent> <S-l> :tabnext<CR>
-    nnoremap <silent> <S-h> :tabprevious<CR>
-    nnoremap <silent> <S-right> :bnext<CR>
-    nnoremap <silent> <S-left> :bprevious<CR>
-    nnoremap <silent> <C-right> :tabnext<CR>
-    nnoremap <silent> <C-left> :tabprevious<CR>
+    nnoremap <silent> <S-l> :silent tabnext<CR>
+    nnoremap <silent> <S-h> :silent tabprevious<CR>
+    nnoremap <silent> <S-right> :silent bnext<CR>
+    nnoremap <silent> <S-left> :silent bprevious<CR>
+    nnoremap <silent> <C-right> :silent tabnext<CR>
+    nnoremap <silent> <C-left> :silent tabprevious<CR>
     nnoremap <silent> <C-N> :cnext<CR>zv
     nnoremap <silent> <C-P> :cprevious<CR>zv
     nnoremap <C-d> <C-d>zz
