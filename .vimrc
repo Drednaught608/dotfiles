@@ -197,6 +197,8 @@
         let args = a:000
         if args[0] ==# ""
             below terminal ++rows=10 ++close bash
+        elseif match(args[0], "^/") == 0
+            execute 'below terminal ++rows=10 ++close bash --rcfile ~/.bashrc -ci "cd ' .. args[0] .. '; exec bash"'
         elseif match(args[0], "^\\.") == 0
             let path = expand("%:p:h") .. "/" .. args[0]
             execute 'below terminal ++rows=10 ++close bash --rcfile ~/.bashrc -ci "cd ' .. path .. '; exec bash"'
