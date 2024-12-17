@@ -211,6 +211,8 @@
     command! -nargs=? Terminal call BashTerminal(<q-args>)
     command! -nargs=? Term call BashTerminal(<q-args>)
 
+    " Adding DiffOrig command back if missing
+    command! DiffOrig vert new | set bt=nofile | r ++edit # | 0d_ | diffthis | wincmd p | diffthis
 
 "}
 
