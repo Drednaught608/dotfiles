@@ -222,10 +222,6 @@
             \/lCursor-blinkwait500-blinkon500-blinkoff500,sm:block-Cursor-blinkwait100-blinkoff500-blinkon500
         highlight Cursor guifg=#222222 guibg=#ffffff
         set guifont=JetBrains\ Mono\ NL:h12:cANSI:qDRAFT
-        if !exists("g:first_time_run")
-            set lines=24 columns=72
-            let g:first_time_run = 1
-        endif
         set guitablabel=%t
         set guioptions-=t
         set laststatus=1
