@@ -50,7 +50,7 @@
     let &t_SI = "\e[5 q"
     let &t_EI = "\e[1 q"
     let g:netrw_banner = 0
-    let g:netrw_dirhistmax=0
+    let g:netrw_dirhistmax = 0
     let g:netrw_localcopydircmd = 'cp -r'
     filetype on
     filetype indent on
@@ -221,7 +221,11 @@
             \/lCursor-blinkwait500-blinkon500-blinkoff500,r-cr:hor20-Cursor
             \/lCursor-blinkwait500-blinkon500-blinkoff500,sm:block-Cursor-blinkwait100-blinkoff500-blinkon500
         highlight Cursor guifg=#222222 guibg=#ffffff
-        set guifont=Consolas:h13:cANSI:qDRAFT
+        set guifont=JetBrains\ Mono\ NL:h12:cANSI:qDRAFT
+        if !exists("g:first_time_run")
+            set lines=24 columns=72
+            let g:first_time_run = 1
+        endif
         set guitablabel=%t
         set guioptions-=t
         set laststatus=1
