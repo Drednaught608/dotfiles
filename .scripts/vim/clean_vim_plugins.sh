@@ -6,7 +6,6 @@ YELLOW='\e[0;33m'
 NC='\033[0m' # No Color
 
 PLUGNUM="$(wc --lines ~/.vimplugins | grep -o '[0-9]*')"
-grep ~/.vimplugins ""
 
 VIM1="$HOME/.vim"
 PATH1="$VIM1/pack/plugins/start"

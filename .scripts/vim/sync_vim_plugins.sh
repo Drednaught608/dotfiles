@@ -29,9 +29,11 @@ while read p; do
         echo -ne "${CYAN}~/.vim:     ${NC}"
         git -C $PATH1/$DIR/ reset --hard HEAD >/dev/null
         git -C $PATH1/$DIR/ pull
+        echo
     else
         echo -ne "${CYAN}~/.vim:     ${NC}"
         git -C $PATH1 clone https://github.com/$p.git
+        echo
     fi
 
     ((counter++))
