@@ -38,8 +38,11 @@
     set wildmenu
     set wildmode=list:longest
     set wildignore=*.docx,*.jpg,*.png,*.gif,*.pdf,*.pyc,*.exe,*.flv,*.img,*.xlsx
+    set runtimepath=~/.vim,$VIM/vimfiles,$VIMRUNTIME,$VIM/vimfiles/after,~/.vim/after
+    set packpath=~/.vim,$VIM/vimfiles,$VIMRUNTIME,$VIM/vimfiles/after,~/.vim/after
     set omnifunc=syntaxcomplete#Complete
     set grepprg=git\ grep\ -n\ --column
+
     if executable("rg")
         set grepprg=rg\ --vimgrep
     endif
