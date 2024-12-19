@@ -40,6 +40,9 @@
     set wildignore=*.docx,*.jpg,*.png,*.gif,*.pdf,*.pyc,*.exe,*.flv,*.img,*.xlsx
     set omnifunc=syntaxcomplete#Complete
     set grepprg=git\ grep\ -n\ --column
+    if executable("rg")
+        set grepprg=rg\ --vimgrep
+    endif
     if &shell ==# "sh"
         set shell=bash
     endif
