@@ -39,8 +39,7 @@
     set wildmode=list:longest
     set wildignore=*.docx,*.jpg,*.png,*.gif,*.pdf,*.pyc,*.exe,*.flv,*.img,*.xlsx
     set omnifunc=syntaxcomplete#Complete
-    set gp=git\ grep\ -n\ --column
-    set path+=**
+    set grepprg=git\ grep\ -n\ --column
     if &shell ==# "sh"
         set shell=bash
     endif
