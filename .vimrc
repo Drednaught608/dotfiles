@@ -42,7 +42,6 @@
     set packpath=~/.vim,$VIM/vimfiles,$VIMRUNTIME,$VIM/vimfiles/after,~/.vim/after
     set omnifunc=syntaxcomplete#Complete
     set grepprg=git\ grep\ -n\ --column
-
     if executable("rg")
         set grepprg=rg\ --vimgrep
     endif
@@ -162,10 +161,10 @@
     augroup end
 
     " Close empty no name file buffers with no content upon switching buffer
-    augroup CloseEmptyBuffers
-        autocmd!
-        autocmd Bufleave * if !expand('%') && line('$') == 1 && getline(1) == "" && &modified == 0 | bd! | endif
-    augroup end
+    "augroup CloseEmptyBuffers
+    "    autocmd!
+    "    autocmd Bufleave * if !expand('%') && line('$') == 1 && getline(1) == "" && &modified == 0 | bd! | endif
+    "augroup end
 
     " Set syntax for custom file formats
     au BufReadPost .bash_* set syntax=bash

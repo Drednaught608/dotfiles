@@ -1,17 +1,90 @@
+
+" Vim Plug Setup {
+
+    let sslVar = &ssl
+    if sslVar ==# 1 && has('win64') || has('win32') || has('win16')
+        set nossl
+    endif
+
+    let data_dir = has('nvim') ? stdpath('data') . '/site' : expand('~/.vim')
+    let plugin_dir = data_dir . '/plugged/'
+
+    " Install Plug package manager and sync plugin list
+    if empty(glob(data_dir . '/autoload/plug.vim'))
+        silent execute '!curl -sfLo '.data_dir.'/autoload/plug.vim --create-dirs  https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim'
+
+        if has('win64') || has('win32') || has('win16')
+            autocmd GUIEnter * call PromptForPluginInstall()
+            function! PromptForPluginInstall()
+                redraw!
+                let user_input = input('Doㅤyouㅤwantㅤtoㅤinstallㅤplugins?ㅤㅤㅤㅤㅤㅤㅤㅤㅤ(y/n):ㅤ')
+                call feedkeys('\<C-Y>')
+                if user_input ==# 'y' || user_input ==# 'Y'
+                    autocmd VimEnter * PlugInstall --sync | source $MYVIMRC
+                else
+                    source $MYVIMRC
+                endif
+            endfunction
+        else
+            let user_input = input('Do you want to install plugins? (y/n): ')
+            call feedkeys('\<C-Y>')
+            if user_input ==# 'y' || user_input ==# 'Y'
+                autocmd VimEnter * PlugInstall --sync | source $MYVIMRC
+            else
+                source $MYVIMRC
+            endif
+        endif
+    endif
+
+    " Download preferred habamax.vim colors theme
+    let data_dir = has('nvim') ? stdpath('data') . '/site' : expand('~/.vim')
+    if empty(glob(data_dir . '/colors/habamax.vim'))
+        silent execute '!curl -sfLo '.data_dir.'/colors/habamax.vim --create-dirs  https://raw.githubusercontent.com/Drednaught608/vim-habamax/refs/heads/master/colors/habamax.vim'
+        colorscheme habamax
+    endif
+
+    call plug#begin()
+
+    Plug 'junegunn/goyo.vim'
+    Plug 'markonm/traces.vim'
+    Plug 'tpope/vim-commentary'
+    Plug 'ap/vim-css-color'
+    Plug 'tpope/vim-dispatch'
+    Plug 'tpope/vim-fugitive'
+    Plug 'airblade/vim-gitgutter'
+    Plug 'ludovicchabant/vim-gutentags'
+    Plug 'machakann/vim-highlightedyank'
+    Plug 'RRethy/vim-illuminate'
+    Plug 'google/vim-searchindex'
+    Plug 'tpope/vim-surround'
+    Plug 'tpope/vim-vinegar'
+
+    call plug#end()
+
+    let &ssl = sslVar
+
+"}
+
 " Settings / Definitions {
 
     " Settings
-    set shortmess+=S
-    let g:highlightedyank_highlight_duration = 200
+    if !empty(glob(plugin_dir . "vim-searchindex"))
+        set shortmess+=S
+    endif
+    if !empty(glob(plugin_dir . "vim-highlightedyank"))
+        let g:highlightedyank_highlight_duration = 200
+    endif
 
 "}
 
 " Keymappings {
 
     " Leader Mappings
-    nnoremap <silent> <Leader>gg :GitGutterSignsToggle<CR>
-    nnoremap <silent> <Leader>gp :GitGutterPreviewHunk<CR><C-w>j
-    nnoremap <silent> <Leader>gu :GitGutterUndoHunk<CR>
-    nnoremap <silent> <Leader>gv :GitGutterDiffOrig<CR>
+    if !empty(glob(plugin_dir . "vim-gitgutter"))
+        nnoremap <silent> <Leader>gg :GitGutterSignsToggle<CR>
+        nnoremap <silent> <Leader>gp :GitGutterPreviewHunk<CR><C-w>j
+        nnoremap <silent> <Leader>gu :GitGutterUndoHunk<CR>
+        nnoremap <silent> <Leader>gv :GitGutterDiffOrig<CR>
+    endif
 
 "}
