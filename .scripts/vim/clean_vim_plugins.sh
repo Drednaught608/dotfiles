@@ -11,7 +11,7 @@ VIM1="$HOME/.vim"
 PATH1="$VIM1/pack/plugins/start"
 
 echo -e "\n${YELLOW}Starting cleanup of unlisted Vim plugins${NC}\n"
-mkdir -p ~/.vim/pack/plugins/start/ ~/vimfiles/pack/plugins/start/ ~/.scripts/vim/temp/
+mkdir -p ~/.vim/pack/plugins/start/ ~/.scripts/vim/temp/
 
 VIMLIST="$HOME/.scripts/vim/temp/plugin_list.txt"
 ls -d "$PATH1"/*/ | awk -F'/' '{print $(NF-1)}' | sort > $VIMLIST
