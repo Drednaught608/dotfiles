@@ -22,10 +22,8 @@ alias 'branch'='git branch --color=always | grep --color=never --line-buffered "
 alias diff='diff -u'
 alias pdb='python -m pdb'
 alias pdb3='python3 -m pdb'
-alias vimplugins='cat ~/.vimplugins'
+alias vimplugins='ls -A1 ~/.vim/plugged 2>/dev/null | echo "$(wc -l) Vim Plugins"; ls -A1 ~/.vim/plugged 2>/dev/null'
 alias vimupdate='~/.scripts/vim/sync_vim_plugins.sh'
-alias vimclean='~/.scripts/vim/clean_vim_plugins.sh'
-alias vimsync='vimclean; vimupdate'
 
 # Normal Prompt
 PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
