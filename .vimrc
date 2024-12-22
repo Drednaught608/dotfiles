@@ -71,7 +71,7 @@
 
     " Leader Mappings
     nnoremap <Leader>l :pwd<CR>
-    nnoremap <Leader>b :ls<CR>:b<Space>
+    nnoremap <Leader>b :ClearBufs<CR>:ls<CR>:b<Space>
     nnoremap <Leader>v :DiffOrig<CR>
     nnoremap <Leader>V :windo diffthis<CR>
     nnoremap <Leader>r viw"hy:%s/<C-r>h\C//g<left><left>
@@ -95,8 +95,8 @@
     nnoremap <silent> <Leader>O :source ~/.vimrc<CR>:noh<CR>
     nnoremap <silent> <Leader>i :silent enew<CR>
     nnoremap <silent> <Leader>I :silent tabnew<CR>
-    nnoremap <silent> <Leader>d :silent bdelete<CR>
-    nnoremap <silent> <Leader>D :silent bdelete!<CR>
+    nnoremap <silent> <Leader>d :ClearBufs<CR>:silent bdelete<CR>
+    nnoremap <silent> <Leader>D :ClearBufs<CR>:silent bdelete!<CR>
     nnoremap <silent> <Leader>B :bufdo bdelete<CR>
     nnoremap <silent> <Leader>y "*y
     nnoremap <silent> <Leader>Y ^"*yg_
@@ -114,15 +114,15 @@
 
     " Keyboard Mappings
     nnoremap <silent> <esc> :noh<CR>:echo<CR><esc>
-    nnoremap <silent> <PageDown> :silent bnext<CR>
-    nnoremap <silent> <PageUp> :silent bprevious<CR>
-    nnoremap <silent> <End> :silent bprevious<CR>
+    nnoremap <silent> <PageDown> :ClearBufs<CR>:silent bnext<CR>
+    nnoremap <silent> <PageUp> :ClearBufs<CR>:silent bprevious<CR>
+    nnoremap <silent> <End> :ClearBufs<CR>:silent bprevious<CR>
     nnoremap <silent> <C-PageUp> :cfirst<CR>zv
     nnoremap <silent> <C-PageDown> :clast<CR>zv
-    nnoremap <silent> <S-l> :silent bnext<CR>
-    nnoremap <silent> <S-h> :silent bprevious<CR>
-    nnoremap <silent> <S-right> :silent bnext<CR>
-    nnoremap <silent> <S-left> :silent bprevious<CR>
+    nnoremap <silent> <S-l> :ClearBufs<CR>:silent bnext<CR>
+    nnoremap <silent> <S-h> :ClearBufs<CR>:silent bprevious<CR>
+    nnoremap <silent> <S-right> :ClearBufs<CR>:silent bnext<CR>
+    nnoremap <silent> <S-left> :ClearBufs<CR>:silent bprevious<CR>
     nnoremap <silent> <C-right> :silent tabnext<CR>
     nnoremap <silent> <C-left> :silent tabprevious<CR>
     nnoremap <silent> <C-N> :cnext<CR>zv
@@ -160,12 +160,6 @@
         autocmd!
         autocmd FileType netrw setlocal bufhidden=wipe
     augroup end
-
-    " Close empty no name file buffers with no content upon switching buffer
-    "augroup CloseEmptyBuffers
-    "    autocmd!
-    "    autocmd Bufleave * if !expand('%') && line('$') == 1 && getline(1) == "" && &modified == 0 | bd! | endif
-    "augroup end
 
     " Set syntax for custom file formats
     au BufReadPost .bash_* set syntax=bash
@@ -223,6 +217,16 @@
     command! -nargs=? Term call BashTerminal(<q-args>)
     cabbrev terminal Terminal
     cabbrev term Term
+
+    " Close empty no name file buffers with no content upon switching buffer
+    function! ClearEmptyBufs()
+        silent! execute 'bd' g:next_empty_buf
+    endfunction
+    augroup CloseEmptyBuffers
+        autocmd!
+        autocmd Bufleave * if expand('%') == "" | let g:next_empty_buf = bufnr('%') | endif
+    augroup end
+    command! ClearBufs call ClearEmptyBufs()
 
     " Adding DiffOrig command back if missing
     command! DiffOrig vert new | set bt=nofile | r ++edit # | 0d_ | diffthis | wincmd p | diffthis
