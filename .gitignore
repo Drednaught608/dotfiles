@@ -1,6 +1,9 @@
-# Ignore Vim swap files
+# .vim/ folders
+.vim/
+
+# Vim swap files
 .*.sw*
 
-# Ignore ctags files
+# ctags files
 .ctags
 tags

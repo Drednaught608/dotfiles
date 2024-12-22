@@ -42,6 +42,7 @@
     set packpath=~/.vim,$VIM/vimfiles,$VIMRUNTIME,$VIM/vimfiles/after,~/.vim/after
     set omnifunc=syntaxcomplete#Complete
     set grepprg=git\ grep\ -n\ --column
+    set grepformat=%f:%l:%c:%m,%f:%l%c%m,%f\ \ %l%c%m
     if executable("rg")
         set grepprg=rg\ --vimgrep
     endif
@@ -220,6 +221,8 @@
     endfunction
     command! -nargs=? Terminal call BashTerminal(<q-args>)
     command! -nargs=? Term call BashTerminal(<q-args>)
+    cabbrev terminal Terminal
+    cabbrev term Term
 
     " Adding DiffOrig command back if missing
     command! DiffOrig vert new | set bt=nofile | r ++edit # | 0d_ | diffthis | wincmd p | diffthis

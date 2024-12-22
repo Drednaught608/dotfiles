@@ -45,6 +45,7 @@
 
     call plug#begin()
 
+    Plug 'neoclide/coc.nvim', {'branch': 'release'}
     Plug 'junegunn/goyo.vim'
     Plug 'markonm/traces.vim'
     Plug 'tpope/vim-commentary'
@@ -68,6 +69,9 @@
 " Settings / Definitions {
 
     " Settings
+    if !empty(glob(plugin_dir . "vim-fugitive"))
+        cabbrev git Git
+    endif
     if !empty(glob(plugin_dir . "vim-searchindex"))
         set shortmess+=S
     endif
