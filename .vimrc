@@ -95,8 +95,8 @@
     nnoremap <silent> <Leader>O :source ~/.vimrc<CR>:noh<CR>
     nnoremap <silent> <Leader>i :silent enew<CR>
     nnoremap <silent> <Leader>I :silent tabnew<CR>
-    nnoremap <silent> <Leader>d :ClearBufs<CR>:silent bdelete<CR>
-    nnoremap <silent> <Leader>D :ClearBufs<CR>:silent bdelete!<CR>
+    nnoremap <silent> <Leader>d :silent bdelete<CR>:ClearBufs<CR>
+    nnoremap <silent> <Leader>D :silent bdelete!<CR>:ClearBufs<CR>
     nnoremap <silent> <Leader>B :bufdo bdelete<CR>
     nnoremap <silent> <Leader>y "*y
     nnoremap <silent> <Leader>Y ^"*yg_
