@@ -246,6 +246,7 @@
         set laststatus=1
         set backspace=2
         set scrolloff=0
+        set guioptions+=!
         set guioptions-=T
         set mouse=a
     endif
