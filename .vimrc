@@ -129,6 +129,8 @@
     nnoremap <silent> <C-P> :cprevious<CR>zv
     nnoremap <C-d> <C-d>zz
     nnoremap <C-u> <C-u>zz
+    noremap <S-ScrollWheelUp> 8zh
+    noremap <S-ScrollWheelDown> 8zl
     noremap <C-h> <C-w>h
     noremap <C-j> <C-w>j
     noremap <C-k> <C-w>k
