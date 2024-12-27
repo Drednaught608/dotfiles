@@ -71,6 +71,31 @@
     " Settings
     if !empty(glob(plugin_dir . "coc.nvim"))
         let g:coc_config_home = '~/.vim'
+        " Confirm autocomplete
+        inoremap <silent><expr> <CR> coc#pum#visible() ? coc#pum#confirm()
+                                      \: "\<C-g>u\<CR>\<c-r>=coc#on_enter()\<CR>"
+        inoremap <silent><expr> <TAB> coc#pum#visible() ? coc#pum#confirm()
+                                      \: "\<C-g>u\<CR>\<c-r>=coc#on_enter()\<CR>"
+        " Symbol rename
+        noremap <leader>gr <Plug>(coc-rename)
+        " Use <c-space> to trigger completion
+        if has('nvim')
+          inoremap <silent><expr> <c-space> coc#refresh()
+        else
+          inoremap <silent><expr> <c-@> coc#refresh()
+          inoremap <silent><expr> <c-space> coc#refresh()
+        endif
+        " Documentation
+        nnoremap <silent> <Leader>k :call ShowDocumentation()<CR>
+        " Documentation window scroll
+        if has('nvim-0.4.0') || has('patch-8.2.0750')
+            nnoremap <silent><nowait><expr> <C-f> coc#float#has_scroll() ? coc#float#scroll(1) : "\<C-f>"
+            nnoremap <silent><nowait><expr> <C-b> coc#float#has_scroll() ? coc#float#scroll(0) : "\<C-b>"
+            inoremap <silent><nowait><expr> <C-f> coc#float#has_scroll() ? "\<c-r>=coc#float#scroll(1)\<cr>" : "\<Right>"
+            inoremap <silent><nowait><expr> <C-b> coc#float#has_scroll() ? "\<c-r>=coc#float#scroll(0)\<cr>" : "\<Left>"
+            vnoremap <silent><nowait><expr> <C-f> coc#float#has_scroll() ? coc#float#scroll(1) : "\<C-f>"
+            vnoremap <silent><nowait><expr> <C-b> coc#float#has_scroll() ? coc#float#scroll(0) : "\<C-b>"
+        endif
     endif
     if !empty(glob(plugin_dir . "vim-fugitive"))
         cabbrev git Git
@@ -93,5 +118,18 @@
         nnoremap <silent> <Leader>gu :GitGutterUndoHunk<CR>
         nnoremap <silent> <Leader>gv :GitGutterDiffOrig<CR>
     endif
+
+"}
+
+" Functions {
+
+    " Show LS documentation if available
+    function! ShowDocumentation()
+        if CocAction('hasProvider', 'hover')
+            call CocActionAsync('doHover')
+        else
+            call feedkeys('K', 'in')
+        endif
+    endfunction
 
 "}
