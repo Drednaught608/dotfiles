@@ -71,6 +71,7 @@
 
     " Settings
     if !empty(glob(plugin_dir . "coc.nvim"))
+        let g:coc_data_home = '~/.config/coc'
         let g:coc_config_home = '~/.vim'
         " Confirm autocomplete
         inoremap <silent><expr> <CR> coc#pum#visible() ? coc#pum#confirm()
