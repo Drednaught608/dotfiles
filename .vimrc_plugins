@@ -41,6 +41,7 @@
     if empty(glob(data_dir . '/colors/habamax.vim'))
         silent execute '!curl -sfLo '.data_dir.'/colors/habamax.vim --create-dirs  https://raw.githubusercontent.com/Drednaught608/vim-habamax/refs/heads/master/colors/habamax.vim'
         colorscheme habamax
+        highlight Cursor guifg=#222222 guibg=#ffffff
     endif
 
     call plug#begin()
