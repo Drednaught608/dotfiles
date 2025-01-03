@@ -1,5 +1,5 @@
 
-" Settings / Definitions {
+" Settings / Definitions {{{
 
     " Settings
     set nocompatible
@@ -65,9 +65,9 @@
     highlight ColorColumn ctermbg=gray
     highlight CursorLine cterm=none
 
-"}
+"}}}
 
-" Keymappings {
+" Keymappings {{{
 
     " Leader Mappings
     nnoremap <Leader>l :pwd<CR>
@@ -153,9 +153,9 @@
     vnoremap J 5j
     vnoremap K 5k
 
-"}
+"}}}
 
-" Autocmds {
+" Autocmds {{{
 
     " Netrw automatic buffer deletion
     augroup netrw
@@ -166,9 +166,9 @@
     " Set syntax for custom file formats
     au BufReadPost .bash_* set syntax=bash
 
-"}
+"}}}
 
-" Functions {
+" Functions {{{
 
     " Quickfix list toggle with preferred settings
     function! ToggleQuickFix()
@@ -233,9 +233,9 @@
     " Adding DiffOrig command back if missing
     command! DiffOrig vert new | set bt=nofile | r ++edit # | 0d_ | diffthis | wincmd p | diffthis
 
-"}
+"}}}
 
-" GVim settings {
+" GVim settings {{{
     if has("gui_running")
         set gcr=n-v-c:block-Cursor
             \/lCursor-blinkwait500-blinkon500-blinkoff500,ve:ver35-Cursor,o:hor50-Cursor,i-ci:ver25-Cursor
@@ -252,13 +252,13 @@
         set guioptions-=T
         set mouse=a
     endif
-"}
+"}}}
 
-" Misc. {
+" Misc. {{{
 
     " Custom plugin settings sourced if it exists
     if filereadable(expand("~/.vimrc_plugins"))
         source ~/.vimrc_plugins
     endif
 
-"}
+"}}}
