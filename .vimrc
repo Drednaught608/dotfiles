@@ -56,7 +56,7 @@
     let &t_EI = "\e[1 q"
     let g:netrw_banner = 0
     let g:netrw_dirhistmax = 0
-    let g:netrw_localcopydircmd = 'cp -r'
+    let g:netrw_localcopydircmd = "cp -r"
     filetype on
     filetype indent on
     filetype plugin on
@@ -93,6 +93,7 @@
     nnoremap <silent> <Leader>T :silent tabedit %<CR>
     nnoremap <silent> <Leader>o :silent edit ~/.vimrc<CR>
     nnoremap <silent> <Leader>O :source ~/.vimrc<CR>:noh<CR>
+    nnoremap <silent> <Leader>go :silent edit ~/.vimrc_plugins<CR>
     nnoremap <silent> <Leader>i :silent enew<CR>
     nnoremap <silent> <Leader>I :silent tabnew<CR>
     nnoremap <silent> <Leader>d :silent bdelete<CR>:ClearBufs<CR>
