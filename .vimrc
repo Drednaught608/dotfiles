@@ -243,7 +243,11 @@
             \/lCursor-blinkwait500-blinkon500-blinkoff500,r-cr:hor20-Cursor
             \/lCursor-blinkwait500-blinkon500-blinkoff500,sm:block-Cursor-blinkwait100-blinkoff500-blinkon500
         highlight Cursor guifg=#222222 guibg=#ffffff
-        set guifont=JetBrains\ Mono\ NL:h13:cANSI:qDRAFT
+        if has('win64') || has('win32') || has('win16')
+            set guifont=JetBrains\ Mono\ NL:h13:cANSI:qDRAFT
+        else
+            set guifont=JetBrains\ Mono\ 13
+        endif
         set guitablabel=%t
         set guioptions-=t
         set laststatus=1

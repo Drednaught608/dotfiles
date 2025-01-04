@@ -1,11 +1,13 @@
 # Exports / Settings
-set -o vi
 bind 'set bell-style none'
 export HISTSIZE=
 export HISTFILESIZE=
 export HISTCONTROL=ignoredups
 export PROMPT_COMMAND='history -a'
-echo -ne "\e]0;Bash\a"
+export HISTIGNORE='history:clear:cls'
+if [[ '$OSTYPE' == 'msys' || '$OSTYPE' == 'cygwin' || '$OSTYPE' == 'mingw'* ]]; then
+    echo -ne "\e]0;Bash\a"
+fi
 
 # Aliases
 alias open='explorer'
