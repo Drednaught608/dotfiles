@@ -1,1 +1,1 @@
-Control-l: "\C-uclear\n"
+Control-l: "\C-e\C-uclear\n"
