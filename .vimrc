@@ -223,7 +223,9 @@
 
     " Close empty no name file buffers with no content upon switching buffer
     function! ClearEmptyBufs()
-        silent! execute 'bd' g:next_empty_buf
+        if getbufvar(1, '&buftype') !=# 'nofile'
+            silent! execute 'bd' g:next_empty_buf
+        endif
     endfunction
     augroup CloseEmptyBuffers
         autocmd!

@@ -26,6 +26,8 @@ alias Git='git'
 alias yadm='yadm -C ~'
 alias pdb='python -m pdb'
 alias pdb3='python3 -m pdb'
+alias vim-='vim -c "setlocal buftype=nofile bufhidden=hide noswapfile" -'
+alias gvim-='gvim -c "setlocal buftype=nofile bufhidden=hide noswapfile" -'
 alias vimplugins='ls -A1 ~/.vim/plugged 2>/dev/null | echo "$(wc -l) Vim Plugins"; ls -A1 ~/.vim/plugged 2>/dev/null'
 alias vimupdate='~/.scripts/vim/sync_vim_plugins.sh'
 
