@@ -164,6 +164,14 @@
         autocmd FileType netrw setlocal bufhidden=wipe
     augroup end
 
+    " Close empty no name file buffers with no content upon switching buffer
+    augroup CloseEmptyBuffers
+        autocmd!
+        autocmd Bufleave * if expand('%') == "" | let g:n_emp_buf = bufnr('%') | endif
+    augroup end
+    let g:n_emp_buf = 0
+    command! ClearBufs if getbufvar(g:n_emp_buf, '&buftype') !=# 'nofile' | silent! execute 'bd' g:n_emp_buf | endif
+
     " Set syntax for custom file formats
     au BufReadPost .bash_* set syntax=bash
 
@@ -220,18 +228,6 @@
     command! -nargs=? Term call BashTerminal(<q-args>)
     cabbrev terminal Terminal
     cabbrev term Term
-
-    " Close empty no name file buffers with no content upon switching buffer
-    function! ClearEmptyBufs()
-        if getbufvar(1, '&buftype') !=# 'nofile'
-            silent! execute 'bd' g:next_empty_buf
-        endif
-    endfunction
-    augroup CloseEmptyBuffers
-        autocmd!
-        autocmd Bufleave * if expand('%') == "" | let g:next_empty_buf = bufnr('%') | endif
-    augroup end
-    command! ClearBufs call ClearEmptyBufs()
 
     " Adding DiffOrig command back if missing
     command! DiffOrig vert new | set bt=nofile | r ++edit # | 0d_ | diffthis | wincmd p | diffthis
