@@ -45,7 +45,17 @@ git() { # Allows for yadm to trigger when in home directory
     fi
 }
 
-# Source local bash settings if they exist
+# Source Bash completion
+if [ -f /usr/share/bash-completion/bash_completion ]; then
+    source /usr/share/bash-completion/bash_completion
+elif [ -f /etc/bash_completion ]; then
+    source /etc/bash_completion
+fi
+
+# Source local Bash settings if they exist
+if [ -f ~/.bash_aliases ]; then
+    source ~/.bash_aliases
+fi
 if [ -f ~/.bash_local ]; then
     source ~/.bash_local
 fi
