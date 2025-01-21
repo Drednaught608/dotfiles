@@ -15,6 +15,7 @@
 	safecrlf = warn
 [pull]
 	rebase = false
+	ff = only
 [fetch]
 	prune = false
 [rebase]
