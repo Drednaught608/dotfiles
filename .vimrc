@@ -78,8 +78,8 @@
     nnoremap <Leader>R viW"hy:%s/<C-r>h\C//g<left><left>
     vnoremap <Leader>r "hy:%s/<C-r>h\C//g<left><left>
     vnoremap <Leader>* y/\V<C-R>=escape(@",'/\')<CR>\C<CR>
-    vnoremap <Leader>y "*y
-    vnoremap <Leader>Y "*Y
+    vnoremap <Leader>y "+y
+    vnoremap <Leader>Y "+Y
     nnoremap <silent> <Leader>m :set cursorline!<CR>
     nnoremap <silent> <Leader>n :call ToggleNumberLines("all")<CR>
     nnoremap <silent> <Leader>N :call ToggleNumberLines("friendly")<CR>
