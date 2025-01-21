@@ -99,8 +99,8 @@
     nnoremap <silent> <Leader>d :silent bdelete<CR>:ClearBufs<CR>
     nnoremap <silent> <Leader>D :silent bdelete!<CR>:ClearBufs<CR>
     nnoremap <silent> <Leader>B :bufdo bdelete<CR>
-    nnoremap <silent> <Leader>y "*y
-    nnoremap <silent> <Leader>Y ^"*yg_
+    nnoremap <silent> <Leader>y "+y
+    nnoremap <silent> <Leader>Y ^"+yg_
     nnoremap <silent> <Leader>p "*p
     nnoremap <silent> <Leader>P "*P
     nnoremap <silent> <Leader>k K
