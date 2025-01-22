@@ -101,8 +101,10 @@
     nnoremap <silent> <Leader>B :bufdo bdelete<CR>
     nnoremap <silent> <Leader>y "+y
     nnoremap <silent> <Leader>Y ^"+yg_
-    nnoremap <silent> <Leader>p "*p
-    nnoremap <silent> <Leader>P "*P
+    nnoremap <silent> <Leader>p "+p
+    nnoremap <silent> <Leader>P "+P
+    vnoremap <silent> <Leader>p "+p
+    vnoremap <silent> <Leader>P "+P
     nnoremap <silent> <Leader>k K
     vnoremap <silent> <Leader>k K
     nnoremap <silent> <Leader>L :silent %s/\r//g<CR>:noh<CR><C-o>
