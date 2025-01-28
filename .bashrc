@@ -1,5 +1,7 @@
 # Exports / Settings
 bind 'set bell-style none'
+bind 'set page-completions off'
+bind 'set completion-ignore-case on'
 export HISTSIZE=
 export HISTFILESIZE=
 export HISTCONTROL=ignoredups
