@@ -34,7 +34,6 @@
     set shortmess-=S
     set autoread
     set hidden
-    set termguicolors
     set wildmenu
     set wildmode=list:longest
     set wildignore=*.docx,*.jpg,*.png,*.gif,*.pdf,*.pyc,*.exe,*.flv,*.img,*.xlsx
@@ -45,6 +44,9 @@
     set grepformat=%f:%l:%c:%m,%f:%l%c%m,%f\ \ %l%c%m
     if executable("rg")
         set grepprg=rg\ --vimgrep
+    endif
+    if !has('macunix')
+        set termguicolors
     endif
     if &shell ==# "sh"
         set shell=bash
@@ -245,6 +247,8 @@
         highlight Cursor guifg=#222222 guibg=#ffffff
         if has('win64') || has('win32') || has('win16')
             set guifont=JetBrains\ Mono\ NL:h13:cANSI:qDRAFT
+        elseif has('macunix')
+            set guifont=JetBrainsMonoNL-Regular:h13
         else
             set guifont=JetBrains\ Mono\ 13
         endif
