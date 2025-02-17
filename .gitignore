@@ -7,3 +7,6 @@
 # ctags files
 .ctags
 tags
+
+# Mac files
+.DS_Store
