@@ -40,7 +40,7 @@ PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 # Functions
 
 git() { # Allows for yadm to trigger when in home directory
-    if [ "$(pwd)" = "$HOME" ] && command -v yadm &> /dev/null; then
+    if [[ "$(pwd)" = "$HOME" && "$1" != "clone" ]] && command -v yadm &> /dev/null; then
         command yadm "$@"
     else
         command git "$@"
