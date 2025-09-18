@@ -4,6 +4,10 @@
 # .vim/ folders
 .vim/
 
+# language cache folders
+__pycache__/
+node_modules/
+
 # Vim swap files
 .*.sw*
 
@@ -14,3 +18,6 @@ tags.temp
 
 # Mac files
 .DS_Store
+
+# Artifacts
+*.exe
