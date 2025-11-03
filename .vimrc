@@ -42,6 +42,10 @@
     set omnifunc=syntaxcomplete#Complete
     set grepprg=git\ grep\ -n\ --column
     set grepformat=%f:%l:%c:%m,%f:%l%c%m,%f\ \ %l%c%m
+    set directory^=$HOME/.vim/swap//
+    if !isdirectory(expand($HOME . '/.vim/swap'))
+        call mkdir(expand($HOME . '/.vim/swap'), 'p')
+    endif
     if executable("rg")
         set grepprg=rg\ --vimgrep
     endif
