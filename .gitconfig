@@ -16,6 +16,8 @@
 [pull]
 	rebase = false
 	ff = only
+[merge]
+    ff = only
 [fetch]
 	prune = false
 [rebase]

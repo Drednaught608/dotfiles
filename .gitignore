@@ -21,3 +21,6 @@ tags.temp
 
 # Artifacts
 *.exe
+
+# Misc.
+**/.claude/settings.local.json
