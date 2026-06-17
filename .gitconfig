@@ -28,3 +28,8 @@
 	format = ssh
 [commit]
 	gpgSign = true
+[undoredo]
+    scope = edit        # edit | global
+    log   = full        # full | compact
+    take  = unstaged    # unstaged | staged
+    color = auto        # auto | always | never

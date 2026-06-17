@@ -7,6 +7,7 @@ export HISTFILESIZE=
 export HISTCONTROL=ignoredups
 export PROMPT_COMMAND='history -a'
 export HISTIGNORE='history:clear:cls'
+export PATH="/c/Users/Michael/.local/bin:$PATH"
 if [[ '$OSTYPE' == 'msys' || '$OSTYPE' == 'cygwin' || '$OSTYPE' == 'mingw'* ]]; then
     echo -ne "\e]0;Bash\a"
 fi
