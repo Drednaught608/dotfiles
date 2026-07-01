@@ -33,3 +33,6 @@
     log   = full        # full | compact
     take  = unstaged    # unstaged | staged
     color = auto        # auto | always | never
+[alias]
+	alias = ! git config --get-regexp ^alias\\. | sed -e s/^alias\\.// -e s/\\ /\\ =\\ /
+	amend = commit --amend --no-edit
