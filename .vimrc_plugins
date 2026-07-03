@@ -112,6 +112,27 @@
     if !empty(glob(plugin_dir . "vim-highlightedyank"))
         let g:highlightedyank_highlight_duration = 200
     endif
+    if !empty(glob(plugin_dir . "vim-gutentags"))
+        let g:gutentags_cache_dir = expand('~/.cache/tags')
+        let g:gutentags_ctags_exclude = [
+              \ 'node_modules', '.git', '.hg', '.svn',
+              \ 'dist', 'build', 'out', 'coverage', 'target',
+              \ '.next', '.nuxt', '.svelte-kit', '.turbo', '.cache', '.parcel-cache',
+              \ 'vendor', 'venv', '.venv', 'env', '__pycache__', '.pytest_cache', '.mypy_cache', '.tox',
+              \ 'bin', 'obj',
+              \ '.idea', '.vscode', '.vs',
+              \ 'tmp', 'temp', 'logs',
+              \ '*.min.js', '*.min.css', '*.map',
+              \ '*.lock', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'Cargo.lock', 'poetry.lock',
+              \ '*.log',
+              \ '*.svg', '*.png', '*.jpg', '*.jpeg', '*.gif', '*.ico', '*.woff', '*.woff2', '*.ttf',
+              \ '*.zip', '*.tar', '*.gz', '*.rar',
+              \ '*.pyc', '*.pyo', '*.class', '*.o', '*.so', '*.dll', '*.exe',
+              \ ]
+        if !isdirectory(g:gutentags_cache_dir)
+            call mkdir(g:gutentags_cache_dir, 'p')
+        endif
+    endif
 
 "}}}
 
