@@ -1,0 +1,95 @@
+--recurse=yes
+
+# VCS
+--exclude=.git
+--exclude=.svn
+--exclude=.hg
+
+# Build / output dirs
+--exclude=BUILD
+--exclude=build
+--exclude=dist
+--exclude=out
+--exclude=bin
+--exclude=obj
+--exclude=coverage
+--exclude=target
+
+# Dependency / package dirs
+--exclude=node_modules
+--exclude=vendor
+--exclude=venv
+--exclude=.venv
+--exclude=env
+
+# Framework / tool caches
+--exclude=.next
+--exclude=.nuxt
+--exclude=.svelte-kit
+--exclude=.turbo
+--exclude=.cache
+--exclude=.parcel-cache
+--exclude=__pycache__
+--exclude=.pytest_cache
+--exclude=.mypy_cache
+--exclude=.tox
+
+# Editor / IDE dirs
+--exclude=.idea
+--exclude=.vscode
+--exclude=.vs
+
+# App-specific dirs
+--exclude=db
+--exclude=log
+--exclude=logs
+--exclude=tmp
+--exclude=temp
+
+# Editor/backup/build artifacts
+--exclude=*.swp
+--exclude=*.bak
+--exclude=*.min.*
+--exclude=*.map
+--exclude=*.cache
+
+# Compiled/object files
+--exclude=*.pyc
+--exclude=*.pyo
+--exclude=*.class
+--exclude=*.o
+--exclude=*.so
+--exclude=*.dll
+--exclude=*.exe
+--exclude=*.pdb
+
+# .NET project files
+--exclude=*.sln
+--exclude=*.csproj
+--exclude=*.csproj.user
+
+# Lockfiles
+--exclude=*.lock
+--exclude=package-lock.json
+--exclude=yarn.lock
+--exclude=pnpm-lock.yaml
+--exclude=Cargo.lock
+--exclude=poetry.lock
+
+# Logs
+--exclude=*.log
+
+# Binary/media assets
+--exclude=*.svg
+--exclude=*.png
+--exclude=*.jpg
+--exclude=*.jpeg
+--exclude=*.gif
+--exclude=*.ico
+--exclude=*.woff
+--exclude=*.woff2
+--exclude=*.ttf
+--exclude=*.zip
+--exclude=*.tar
+--exclude=*.gz
+--exclude=*.rar
