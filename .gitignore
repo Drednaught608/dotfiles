@@ -23,4 +23,4 @@ tags.temp
 *.exe
 
 # Misc.
-**/.claude/settings.local.json
+.claude/
