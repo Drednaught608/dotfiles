@@ -34,7 +34,14 @@
     take  = unstaged    # unstaged | staged
     color = auto        # auto | always | never
 [alias]
-	alias = "! git config -z --get-regexp '^alias\\.' | tr '\\n\\0' '\\t\\n' | awk -F '\\t' '{ sub(/^alias\\./, \"\", $1); print $1 \" = \" $2 }'"
+	alias = "!# git alias: list each alias with only the first line of its command\n\
+	if [ -t 1 ]; then tty=true; else tty=false; fi\n\
+	if [ \"$(git config --get-colorbool color.ui $tty)\" = true ]; then\n\
+		on=$(git config --get-color '' 'bold cyan'); off=$(git config --get-color '' reset)\n\
+	fi\n\
+	git config -z --get-regexp '^alias\\.' |\n\
+		tr '\\n\\0' '\\001\\n' |\n\
+		awk -F '\\001' -v on=\"$on\" -v off=\"$off\" '{ sub(/^alias\\./, \"\", $1); print on $1 off \" = \" $2 (NF > 2 ? \" ...\" : \"\") }'"
 	amend = commit --amend --no-edit
 	sync = "!# git sync [base] [target]: fast-forward <target> (default: current branch) to <base> (default: repo's default branch); never merges or rebases\n\
 	f() {\n\
