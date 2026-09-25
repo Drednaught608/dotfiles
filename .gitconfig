@@ -34,5 +34,110 @@
     take  = unstaged    # unstaged | staged
     color = auto        # auto | always | never
 [alias]
-	alias = ! git config --get-regexp ^alias\\. | sed -e s/^alias\\.// -e s/\\ /\\ =\\ /
+	alias = "! git config -z --get-regexp '^alias\\.' | tr '\\n\\0' '\\t\\n' | awk -F '\\t' '{ sub(/^alias\\./, \"\", $1); print $1 \" = \" $2 }'"
 	amend = commit --amend --no-edit
+	sync = "!# git sync [base] [target]: fast-forward <target> (default: current branch) to <base> (default: repo's default branch); never merges or rebases\n\
+	f() {\n\
+	die() { echo \"git sync: $*\" >&2; exit 1; }\n\
+	\n\
+	[ $# -le 2 ] || die \"usage: git sync [base-branch] [target-branch]\"\n\
+	git rev-parse --git-dir >/dev/null 2>&1 || die \"not inside a git repository\"\n\
+	\n\
+	base=$1\n\
+	target=$2\n\
+	\n\
+	# Remote: the base branch's configured remote, else origin, else the only remote.\n\
+	pick_remote() {\n\
+	    r=\n\
+	    [ -n \"$1\" ] && r=$(git config \"branch.$1.remote\")\n\
+	    [ -z \"$r\" ] && git remote | grep -qx origin && r=origin\n\
+	    [ -z \"$r\" ] && [ \"$(git remote | wc -l)\" -eq 1 ] && r=$(git remote)\n\
+	    echo \"$r\"\n\
+	}\n\
+	\n\
+	# Target defaults to the currently checked-out branch.\n\
+	if [ -z \"$target\" ]; then\n\
+	    target=$(git symbolic-ref --quiet --short HEAD) ||\n\
+	        die \"HEAD is detached; check out a branch or name the target: git sync <base> <target>\"\n\
+	fi\n\
+	git show-ref --verify --quiet \"refs/heads/$target\" ||\n\
+	    die \"'$target' is not a local branch\"\n\
+	\n\
+	# Base defaults to the repo's default branch (whatever the remote's HEAD points at).\n\
+	if [ -z \"$base\" ]; then\n\
+	    remote=$(pick_remote)\n\
+	    if [ -n \"$remote\" ]; then\n\
+	        base=$(git symbolic-ref --quiet --short \"refs/remotes/$remote/HEAD\" 2>/dev/null)\n\
+	        base=${base#\"$remote/\"}\n\
+	        if [ -z \"$base\" ]; then\n\
+	            base=$(git ls-remote --symref \"$remote\" HEAD 2>/dev/null |\n\
+	                sed -n 's|^ref: refs/heads/\\(.*\\)[[:space:]]HEAD$|\\1|p')\n\
+	        fi\n\
+	    fi\n\
+	    if [ -z \"$base\" ]; then\n\
+	        for b in \"$(git config init.defaultBranch)\" main master; do\n\
+	            [ -n \"$b\" ] && git show-ref --verify --quiet \"refs/heads/$b\" && { base=$b; break; }\n\
+	        done\n\
+	    fi\n\
+	    [ -n \"$base\" ] || die \"could not determine the default branch; pass it explicitly: git sync <base>\"\n\
+	fi\n\
+	\n\
+	remote=$(pick_remote \"$base\")\n\
+	if [ -n \"$remote\" ]; then\n\
+	    git fetch --quiet \"$remote\" ||\n\
+	        echo \"git sync: warning: fetch from '$remote' failed; using local refs\" >&2\n\
+	fi\n\
+	\n\
+	# Resolve base to a commit, choosing between local and remote-tracking copies.\n\
+	local_ref=\"refs/heads/$base\"\n\
+	remote_ref=\"refs/remotes/$remote/$base\"\n\
+	has_local=; has_remote=\n\
+	git show-ref --verify --quiet \"$local_ref\" && has_local=1\n\
+	[ -n \"$remote\" ] && git show-ref --verify --quiet \"$remote_ref\" && has_remote=1\n\
+	\n\
+	if [ -n \"$has_local\" ] && [ -n \"$has_remote\" ]; then\n\
+	    if git merge-base --is-ancestor \"$local_ref\" \"$remote_ref\"; then\n\
+	        base_ref=$remote_ref\n\
+	    elif git merge-base --is-ancestor \"$remote_ref\" \"$local_ref\"; then\n\
+	        base_ref=$local_ref\n\
+	    else\n\
+	        die \"local '$base' and '$remote/$base' have diverged; sort that out first\"\n\
+	    fi\n\
+	elif [ -n \"$has_remote\" ]; then\n\
+	    base_ref=$remote_ref\n\
+	elif [ -n \"$has_local\" ]; then\n\
+	    base_ref=$local_ref\n\
+	elif git rev-parse --verify --quiet \"$base^{commit}\" >/dev/null; then\n\
+	    base_ref=$base   # e.g. \"origin/dev\", a tag, or a commit\n\
+	else\n\
+	    die \"unknown base branch '$base'\"\n\
+	fi\n\
+	\n\
+	base_name=$(git rev-parse --abbrev-ref \"$base_ref\" 2>/dev/null || echo \"$base_ref\")\n\
+	[ \"refs/heads/$target\" = \"$(git rev-parse --symbolic-full-name \"$base_ref\" 2>/dev/null)\" ] &&\n\
+	    die \"base and target are the same branch ('$target')\"\n\
+	\n\
+	old=$(git rev-parse \"refs/heads/$target\")\n\
+	new=$(git rev-parse \"$base_ref^{commit}\")\n\
+	\n\
+	if git merge-base --is-ancestor \"$new\" \"$old\"; then\n\
+	    echo \"'$target' is already up to date with '$base_name'. Nothing to do.\"\n\
+	    exit 0\n\
+	fi\n\
+	if ! git merge-base --is-ancestor \"$old\" \"$new\"; then\n\
+	    ahead=$(git rev-list --count \"$new..$old\")\n\
+	    behind=$(git rev-list --count \"$old..$new\")\n\
+	    die \"cannot fast-forward '$target' to '$base_name': '$target' has $ahead commit(s) not in '$base_name' ($behind behind). Nothing changed; merge or rebase manually.\"\n\
+	fi\n\
+	\n\
+	count=$(git rev-list --count \"$old..$new\")\n\
+	if [ \"$(git symbolic-ref --quiet --short HEAD)\" = \"$target\" ]; then\n\
+	    # Checked out here: --ff-only also refuses if local edits would be overwritten.\n\
+	    git merge --ff-only --quiet \"$new\" || die \"fast-forward aborted; nothing changed\"\n\
+	else\n\
+	    # Not checked out here: fetch-into-self is ff-only and refuses branches\n\
+	    # checked out in another worktree.\n\
+	    git fetch --quiet . \"$new:refs/heads/$target\" || die \"fast-forward aborted; nothing changed\"\n\
+	fi\n\
+	echo \"Fast-forwarded '$target' to '$base_name': $(git rev-parse --short \"$old\")..$(git rev-parse --short \"$new\") ($count commit(s)).\"\n\
+	}; f"
