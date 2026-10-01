@@ -4,9 +4,9 @@ bind 'set page-completions off'
 bind 'set completion-ignore-case on'
 export HISTSIZE=
 export HISTFILESIZE=
-export HISTCONTROL=ignoredups
+export HISTCONTROL=ignoreboth
 export PROMPT_COMMAND='history -a'
-export HISTIGNORE='history:clear:cls'
+export HISTIGNORE='history:clear:cls:ls:la:ll:cd:pwd:exit:logout:bg:fg:top:htop:uptime:df:free:micro:nano:vi:vim:nvim'
 export PATH="/c/Users/Michael/.local/bin:$PATH"
 if [[ '$OSTYPE' == 'msys' || '$OSTYPE' == 'cygwin' || '$OSTYPE' == 'mingw'* ]]; then
     echo -ne "\e]0;Bash\a"
@@ -41,7 +41,7 @@ PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 # Functions
 
 git() { # Allows for yadm to trigger when in home directory
-    if [[ "$(pwd)" = "$HOME" && "$1" != "clone" ]] && command -v yadm &> /dev/null; then
+    if [[ "$(pwd)" = "$HOME" && "$1" != "clone" && "$1" != "config" ]] && command -v yadm &> /dev/null; then
         command yadm "$@"
     else
         command git "$@"

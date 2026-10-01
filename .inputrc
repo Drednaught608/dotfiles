@@ -1,1 +1,5 @@
-Control-l: "\C-e\C-uclear\n"
+"\C-l": " \C-e\C-uclear\C-m"
+"\C-g": " git fetch\C-m"
+"\C-h": " git log --oneline -n 11 --graph\C-m"
+"\C-o": " git status -sb\C-m"
+"\C-_": " git branch -avv\C-m"
