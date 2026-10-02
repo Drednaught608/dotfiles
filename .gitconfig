@@ -13,6 +13,8 @@
 	autocrlf = false
 	eol = lf
 	safecrlf = warn
+[push]
+	autoSetupRemote = true
 [pull]
 	rebase = false
 	ff = only
