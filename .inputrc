@@ -1,7 +1,7 @@
 "\C-l": "\C-e\C-u clear\C-m"
 "\C-g": "\C-e\C-u git --no-pager diff HEAD\C-m"
 "\C-h": "\C-e\C-u git log --oneline -n 11 --graph\C-m"
-"\C-n": "\C-e\C-u git fetch\C-m"
+"\C-n": "\C-e\C-u staging_toggle\C-m"
 "\C-o": "\C-e\C-u git status -sb\C-m"
 "\C-p": "\C-e\C-u git pull --ff-only && git push\C-m"
 "\C-_": "\C-e\C-u git branch -avv\C-m"

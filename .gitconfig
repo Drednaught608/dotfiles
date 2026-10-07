@@ -28,6 +28,8 @@
 	defaultBranch = main
 [gpg]
 	format = ssh
+[url "git@github.com:"]
+	insteadOf = https://github.com/
 [commit]
 	gpgSign = true
 [undoredo]

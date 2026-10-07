@@ -1,0 +1,253 @@
+#!/usr/bin/env bash
+# dgit - minimal dotfiles manager: a bare Git repo whose work tree is $HOME.
+#
+#   dgit init            create the repo
+#   dgit clone <url>     clone dotfiles and check them out into $HOME
+#   dgit add <path>...   start tracking files (everything else is ignored)
+#   dgit <git args...>   any other git command, run against $HOME
+#
+# The repo lives in $DGIT_DIR (default: ~/.local/share/dgit). Paths are relative to
+# where you are, like normal git, and are stored by their path from ~. Outside
+# $HOME, relative paths are refused; use absolute ones like ~/.bashrc.
+
+[ -n "$HOME" ] || { echo "dgit: HOME is not set" >&2; exit 1; }
+DGIT_DIR=${DGIT_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/dgit}
+
+# Git exports these in hooks and some tools set them; any one left in the
+# environment would point dgit at another repo's index, objects or config.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+  GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_CONFIG GIT_CONFIG_COUNT \
+  GIT_CONFIG_PARAMETERS GIT_IMPLICIT_WORK_TREE GIT_GRAFT_FILE GIT_PREFIX \
+  GIT_NO_REPLACE_OBJECTS GIT_REPLACE_REF_BASE GIT_SHALLOW_FILE GIT_NAMESPACE \
+  GIT_LITERAL_PATHSPECS GIT_GLOB_PATHSPECS GIT_NOGLOB_PATHSPECS GIT_ICASE_PATHSPECS
+
+# Are we inside $HOME? Compare directories by identity, not spelling: case,
+# symlinks and C:/Users/x vs /c/users/x on Windows can all differ.
+here=$PWD inside= d=$PWD
+while :; do
+  [ "$d" -ef "$HOME" ] && { inside=1; break; }
+  [ "${d%/*}" = "$d" ] && break
+  d=${d%/*}
+done
+
+# Stay put inside $HOME so relative paths work; otherwise operate from ~.
+cd "$HOME" || exit
+HOME=$PWD
+[ -n "$inside" ] && cd "$here"
+case $DGIT_DIR in /*|?:*) ;; *) DGIT_DIR=$here/$DGIT_DIR ;; esac
+
+die() { echo "dgit: $*" >&2; exit 1; }
+
+# Leading git options (e.g. -c k=v, --no-pager) go before the command; split
+# them off so the command itself is what decides how dgit runs it. Options
+# that would point git at another directory or repo defeat dgit's purpose.
+opts=()
+while :; do
+  case $1 in
+    -h|--help) set -- help; break ;;
+    -C|--git-dir*|--work-tree*|--bare|--namespace*) die "'$1' would point dgit away from $HOME and its repo" ;;
+    -c) opts+=("$1" "$2"); shift; shift ;;
+    -*) opts+=("$1"); shift ;;
+    *) break ;;
+  esac
+done
+
+# g: plain repo access, ignoring your global excludes and fsmonitor (which
+# would watch all of $HOME). ig: same, but with every untracked file in $HOME
+# ignored, so nothing outside what you've added is ever seen or swept up.
+# The ignore file is (re)created on demand, so it can never silently vanish.
+g() {
+  git --git-dir="$DGIT_DIR" --work-tree="$HOME" -c status.showUntrackedFiles=no \
+    -c core.excludesFile= -c core.fsmonitor=false "${opts[@]}" "$@"
+}
+ig() {
+  [ -e "$DGIT_DIR/ignore" ] || { [ -d "$DGIT_DIR" ] && echo '*' > "$DGIT_DIR/ignore"; }
+  g -c core.excludesFile="$DGIT_DIR/ignore" "$@"
+}
+
+# Aliases can't shadow built-in commands, so only look up unfamiliar ones
+# (each lookup costs an extra git process), and classify an alias by the
+# command it expands to.
+cmd=$1
+case $cmd in
+  ''|init|clone|help|add|stash|clean|status|diff|log|show|commit|push|fetch|rm|mv|\
+  restore|reset|branch|tag|remote|config|ls-files|ls-tree|grep|blame|reflog|\
+  checkout|switch|merge|pull|rebase|cherry-pick|revert|am|bisect|rev-parse|rev-list|\
+  show-ref|cat-file|describe|shortlog|format-patch|apply|notes|gc|fsck|\
+  archive|difftool|mergetool|ls-remote|for-each-ref|check-ignore|version) ;;
+  *)
+    a=$(g config --get "alias.$cmd") && {
+      a=${a#"${a%%[![:space:]]*}"}
+      case $a in '!'*) die "alias '$cmd' runs a shell command, which dgit can't check; dgit doesn't run shell aliases" ;; esac
+      a=${a%%[[:space:]]*}
+      case $a in add|stash|clean) die "alias '$cmd' runs '$a'; use 'dgit $a' directly" ;; esac
+      cmd=$a
+    }
+    ;;
+esac
+
+# Outside $HOME, a relative path names something outside $HOME, which can't
+# be in the repo. Git would quietly read it as relative to ~, so refuse any
+# argument that exists as a path here or in ~ (refs and messages pass).
+if [ -z "$inside" ]; then
+  case $cmd in ''|init|clone|help) ;; *)
+    skip=
+    for a in "${@:2}"; do
+      [ -n "$skip" ] && { skip=; continue; }
+      case $a in
+        -m|--message|-[!-]*m) skip=1 ;;
+        -*|/*|?:*) ;;
+        *) { [ -e "$here/$a" ] || [ -e "$a" ]; } &&
+             die "'$a' is relative to $here, which is outside $HOME; use an absolute path (e.g. ~/$a) or cd into $HOME" ;;
+      esac
+    done
+  esac
+fi
+
+case $cmd in
+  init)
+    [ -e "$DGIT_DIR" ] && die "$DGIT_DIR already exists"
+    git init -q --bare "$DGIT_DIR" || exit
+    g config core.autocrlf false
+    echo "dgit: initialized $DGIT_DIR"
+    ;;
+  clone)
+    [ $# -eq 2 ] || { echo "usage: dgit clone <url>" >&2; exit 2; }
+    [ -e "$DGIT_DIR" ] && die "$DGIT_DIR already exists"
+    url=$2
+    case $url in /*|?:*) ;; *) [ -e "$here/$url" ] && url=$here/$url ;; esac
+    git clone -q --bare "$url" "$DGIT_DIR" || exit
+    g config core.autocrlf false
+    # A bare clone has no fetch refspec; add one so pull/fetch work normally.
+    g config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+    g fetch -q origin
+    g rev-parse -q --verify HEAD >/dev/null || { echo "dgit: cloned an empty repo; nothing to check out"; exit 0; }
+    g branch -q -u "origin/$(g symbolic-ref --short HEAD)"
+    g checkout -q --no-overwrite-ignore ||
+      die "files already in $HOME would be overwritten, so nothing was checked out.
+  To keep your files and review how they differ: dgit reset, then dgit status
+  To replace them with the repo's versions:      dgit checkout -f"
+    echo "dgit: dotfiles checked out into $HOME"
+    ;;
+  ''|help)
+    [ ${#opts[@]} -gt 0 ] && [ -z "$cmd" ] && { g; exit; }
+    [ $# -gt 1 ] && { git help "${@:2}"; exit; }
+    sed -n '2,11s/^# \{0,1\}//p' "$0"
+    ;;
+  # Commands below write incoming files into $HOME. Git silently overwrites
+  # ignored files but refuses to clobber untracked ones, so they run without
+  # dgit's ignore rule. A .gitignore inside $HOME (a project's own, say) can
+  # still mark files ignored, so where Git allows it, say never to overwrite
+  # ignored files either; pull can't, so it checks for collisions itself.
+  checkout|switch)
+    [ "$1" = "$cmd" ] && set -- "$1" --no-overwrite-ignore "${@:2}"
+    g "$@"
+    ;;
+  merge)
+    case " ${*:2} " in
+      *" --abort "*|*" --continue "*|*" --quit "*) ;;
+      *) [ "$1" = "$cmd" ] && set -- "$1" --no-overwrite-ignore "${@:2}" ;;
+    esac
+    g "$@"
+    ;;
+  pull)
+    pos=() skip=
+    for a in "${@:2}"; do
+      [ -n "$skip" ] && { skip=; continue; }
+      case $a in -s|-X|-o|-j|--depth) skip=1 ;; -*) ;; *) pos+=("$a") ;; esac
+    done
+    g fetch -q "${pos[@]}" || exit
+    base=$(g merge-base HEAD FETCH_HEAD 2>/dev/null) || base=$(g hash-object -t tree --stdin </dev/null)
+    bad=()
+    while IFS= read -r -d '' p; do
+      { [ -e "$HOME/$p" ] || [ -L "$HOME/$p" ]; } &&
+        ! g -C "$HOME" --literal-pathspecs ls-files --error-unmatch -- "$p" >/dev/null 2>&1 &&
+        bad+=("$p")
+    done < <(g diff -z --name-only --no-renames --diff-filter=A "$base" FETCH_HEAD)
+    [ ${#bad[@]} -eq 0 ] ||
+      die "pulling would overwrite these untracked files; move them aside first:$(printf '\n  ~/%s' "${bad[@]}")"
+    g "$@"
+    ;;
+  rebase|cherry-pick|revert|am|reset|bisect)
+    g "$@"
+    ;;
+  stash)
+    case $2 in apply|pop|branch) g "$@"; exit ;; esac
+    for a in "${@:2}"; do
+      case $a in
+        --) break ;;
+        --all) die "refusing 'stash $a': it would stash away all of $HOME" ;;
+        --*) ;;
+        -*a*) die "refusing 'stash $a': it would stash away all of $HOME" ;;
+      esac
+    done
+    ig "$@"
+    ;;
+  clean)
+    die "refusing 'clean': with -x it would delete all of $HOME"
+    ;;
+  # Adding a path is the explicit opt-in, so force past the ignore rule; but
+  # never for all of $HOME, or for anything containing the repo itself.
+  # Pathspecs are literal, so no glob or :/ magic can reach across $HOME.
+  add)
+    flags=() paths=() nfiles=() ndirs=() end=
+    for a in "${@:2}"; do
+      case $end$a in
+        --) end=1; continue ;;
+        --all|--no-ignore-removal|--pathspec-from-file*) die "refusing 'add $a': it could stage all of $HOME" ;;
+        --*) flags+=("$a"); continue ;;
+        -*A*) die "refusing 'add $a': it would stage all of $HOME" ;;
+        -*) flags+=("$a"); continue ;;
+      esac
+      case $a in -*) a=./$a ;; esac  # a path after --; keep it from reading as an option
+      [ "$a" -ef "$HOME" ] && die "refusing 'add $a': that is all of $HOME; name files explicitly"
+      # Walk up from the repo (does $a contain it?) and from $a (is it
+      # inside the repo, or inside some project's own Git repo?), comparing
+      # by identity, not spelling.
+      d=$DGIT_DIR
+      while [ "${d%/*}" != "$d" ] && ! [ "$d" -ef "$HOME" ]; do
+        [ "$a" -ef "$d" ] && die "refusing 'add $a': it contains the dgit repo"
+        d=${d%/*}
+      done
+      repo=
+      case $a in /*|?:*) d=$a ;; *) d=$PWD/$a ;; esac
+      while [ "${d%/*}" != "$d" ] && ! [ "$d" -ef "$HOME" ]; do
+        [ "$d" -ef "$DGIT_DIR" ] && die "refusing 'add $a': it is inside the dgit repo"
+        [ -z "$repo" ] && [ -e "$d/.git" ] && repo=$d
+        d=${d%/*}
+      done
+      # Git won't add files from inside another repo (it would link the repo
+      # instead), so stage those directly, by name. A directory that is in,
+      # or holds, a repo is expanded to its files, minus any .git.
+      if [ -d "$a" ]; then
+        if [ -n "$repo" ] || [ -n "$(find "$a" -name .git -print -quit)" ]; then
+          ndirs+=("$a")
+        else
+          paths+=("$a")
+        fi
+      elif [ -n "$repo" ]; then
+        nfiles+=("$a")
+      else
+        paths+=("$a")
+      fi
+    done
+    if [ ${#nfiles[@]} -gt 0 ] || [ ${#ndirs[@]} -gt 0 ]; then
+      [ ${#flags[@]} -eq 0 ] || die "options can't be combined with files inside another Git repo"
+      # --remove stages a deletion when a tracked file is gone.
+      if [ ${#nfiles[@]} -gt 0 ]; then
+        g update-index --add --remove -- "${nfiles[@]}" || exit
+      fi
+      # Pass paths as arguments, not stdin: Git for Windows only translates
+      # /c/... style paths when they arrive as arguments.
+      if [ ${#ndirs[@]} -gt 0 ]; then
+        find "${ndirs[@]}" -name .git -prune -o \( -type f -o -type l \) -print0 |
+          xargs -0 git --git-dir="$DGIT_DIR" --work-tree="$HOME" update-index --add -- || exit
+      fi
+      [ ${#paths[@]} -gt 0 ] || exit 0
+    fi
+    ig --literal-pathspecs add -f "${flags[@]}" -- "${paths[@]}"
+    ;;
+  *)
+    ig "$@"
+    ;;
+esac
