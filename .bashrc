@@ -23,7 +23,6 @@ alias tldr='tldr -s'
 alias 'branch'='git branch --color=always | grep --color=never --line-buffered "\*"'
 alias diff='diff -u'
 alias Git='git'
-alias yadm='yadm -C ~'
 alias pdb='python -m pdb'
 alias pdb3='python3 -m pdb'
 alias vi-='vi -c "setlocal buftype=nofile bufhidden=hide noswapfile" -'
@@ -36,32 +35,24 @@ PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 
 # Functions
 
-git() { # Allows for yadm to trigger when in home directory
-    if [[ "$(pwd)" = "$HOME" && "$1" != "clone" && "$1" != "config" ]] && command -v yadm &> /dev/null; then
-        command yadm "$@"
+git() { # Allows for dgit to trigger when in home directory
+    if [[ "$(pwd)" = "$HOME" && "$1" != "clone" && "$1" != "config" ]] && command -v dgit &> /dev/null; then
+        command dgit "$@"
     else
         command git "$@"
     fi
 }
 
-staging_toggle() { # Allows for adding & removing all from staging, accounts for yadm
-    if command git rev-parse --is-inside-work-tree &> /dev/null; then
-        # 1. Inside a standard Git project (any folder deep)
-        if ! command git diff --quiet || [[ -n $(command git ls-files --others --exclude-standard) ]]; then
-            command git add --all
-            command git status -s
+staging_toggle() { # Allows for adding & removing all from staging
+    if git rev-parse --is-inside-work-tree &> /dev/null; then
+        if git diff --quiet && git diff --cached --quiet && [[ -z $(git ls-files --others --exclude-standard -- :/) ]]; then
+            echo "Working tree clean."
+        elif ! git diff --quiet || [[ -n $(git ls-files --others --exclude-standard -- :/) ]]; then
+            git add --all
+            echo "Staged all files."
         else
-            command git reset --quiet
-            command git status -s
-        fi
-    elif [[ "$(pwd)" = "$HOME" ]] && command -v yadm &> /dev/null; then
-        # 2. Exactly at the home directory root (yadm context)
-        if ! command yadm diff --quiet; then
-            command yadm add --update
-            command yadm status -s
-        else
-            command yadm reset --quiet
-            command yadm status -s
+            git reset --quiet
+            echo "Unstaged all files."
         fi
     else
         echo "Not in a Git repository."
