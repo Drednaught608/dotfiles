@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# updatessh - lock down ~/.ssh permissions so ssh accepts your keys, then
+# check the key authenticates to GitHub. Works on Linux, macOS and Git Bash.
+#
+# Windows OpenSSH ignores Unix modes and instead rejects keys whose ACL lets
+# anyone but you (or SYSTEM) read them, so on Windows the ACLs are set too.
+
+SSH_DIR=$HOME/.ssh
+
+[ -d "$SSH_DIR" ] || { echo "updatessh: no $SSH_DIR directory" >&2; exit 1; }
+
+case $(uname -s) in MINGW*|MSYS*|CYGWIN*) win=1 ;; *) win= ;; esac
+
+# MSYS_NO_PATHCONV stops Git Bash from rewriting icacls' /flags as paths.
+lock() {  # lock <path> <unix mode>
+  chmod "$2" "$1"
+  if [ -n "$win" ] && command -v icacls >/dev/null; then
+    local w f=; w=$(cygpath -w "$1")
+    [ -d "$1" ] && f='(OI)(CI)'  # let files created inside inherit it
+    MSYS_NO_PATHCONV=1 icacls "$w" /reset >/dev/null
+    MSYS_NO_PATHCONV=1 icacls "$w" /inheritance:r \
+      /grant:r "${USERNAME:-$(whoami)}:$f(F)" "SYSTEM:$f(F)" >/dev/null
+  fi
+}
+
+lock "$SSH_DIR" 700
+for f in "$SSH_DIR"/*; do
+  [ -f "$f" ] || continue
+  case ${f##*/} in
+    *.pub|known_hosts*) lock "$f" 644 ;;
+    *) lock "$f" 600 ;;  # private keys, config, authorized_keys
+  esac
+done
+echo "updatessh: permissions set on $SSH_DIR"
+
+# ssh -T exits 1 even on success (GitHub offers no shell), so check the text.
+out=$(ssh -T -o StrictHostKeyChecking=accept-new -o BatchMode=yes git@github.com 2>&1)
+case $out in
+  *"successfully authenticated"*) echo "updatessh: ${out%%!*}!" ;;
+  *) echo "updatessh: GitHub rejected your key: $out" >&2
+     echo "  Make sure your .pub key is added at https://github.com/settings/keys" >&2
+     exit 1 ;;
+esac
