@@ -48,8 +48,10 @@ if [ -e "$DGIT_DIR" ]; then
   mv "$DGIT_DIR" "$BACKUP/dgit"
 fi
 
+# Skip the global gitconfig for the clone: if one is already in place (a
+# rerun, say), its insteadOf would turn this HTTPS URL back into SSH.
 say "Cloning $HTTPS_URL into $HOME"
-"$DGIT" clone "$HTTPS_URL"
+GIT_CONFIG_GLOBAL=/dev/null "$DGIT" clone "$HTTPS_URL"
 
 # dgit clone keeps any existing file that differs from the repo; back those
 # up, then reset so $HOME matches origin/main exactly.
