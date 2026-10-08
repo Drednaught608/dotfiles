@@ -40,20 +40,24 @@ git() { # Allows for dgit to trigger when in home directory
 }
 
 staging_toggle() { # Allows for adding & removing all from staging
+    local status branch
     if ! type -P git > /dev/null; then
         echo "Git is not installed."
-    elif git rev-parse --is-inside-work-tree &> /dev/null; then
-        local branch=$(git branch --show-current)
-        local on=$(git config --get-color color.branch.current green) off=$(git config --get-color '' reset)
-        branch="* $on${branch:-detached HEAD}$off"
-        if git diff --quiet && git diff --cached --quiet && [[ -z $(git ls-files --others --exclude-standard -- :/) ]]; then
-            echo "$branch Working tree clean."
-        elif ! git diff --quiet || [[ -n $(git ls-files --others --exclude-standard -- :/) ]]; then
+    # One call for the whole repo: "# branch.head <name>", then a line per change:
+    # "? path" untracked, "1 XY ..." / "2 XY ..." (X staged, Y unstaged, "." none), "u ..." conflict
+    elif status=$(git status --porcelain=v2 --branch --untracked-files=normal 2> /dev/null); then # Fails outside a repo
+        branch=${status#*'# branch.head '}
+        branch=${branch%%$'\n'*}
+        [[ $branch == '(detached)' ]] && branch='detached HEAD'
+        branch="* "$'\e[32m'"$branch"$'\e[m' # git branch's current-branch green
+        if [[ $status == *$'\n? '* || $status == *$'\n'[12u]' '?[!.]' '* ]]; then # Untracked or unstaged
             git add --all
             echo "$branch Staged all files."
-        else
+        elif [[ $status == *$'\n'[12]' '* ]]; then # Only staged
             git reset --quiet
             echo "$branch Unstaged all files."
+        else
+            echo "$branch Working tree clean."
         fi
     else
         echo "Not in a Git repository."
