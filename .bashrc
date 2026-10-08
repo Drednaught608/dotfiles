@@ -70,7 +70,7 @@ case $OSTYPE in
     darwin*)       os=mac ;;
     linux*)        os=linux ;;
 esac
-[ -n "$os" ] && [ -f ~/.local/bash/$os.bash ] && source ~/.local/bash/$os.bash
+[ -z "$os" ] || [ ! -f ~/.local/bash/$os.bash ] || source ~/.local/bash/$os.bash
 unset os
-[ -f ~/.bash_aliases ] && source ~/.bash_aliases
-[ -f ~/.bash_local ] && source ~/.bash_local
+[ ! -f ~/.bash_aliases ] || source ~/.bash_aliases
+[ ! -f ~/.bash_local ] || source ~/.bash_local
