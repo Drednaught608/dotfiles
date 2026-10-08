@@ -14,8 +14,33 @@ git config --global alias.sh '!echo hi'; git config --global alias.untrack 'rm -
 echo '*.secret' > "$T/global-ignore"; git config --global core.excludesFile "$T/global-ignore"
 
 pass=0 fail=0
-ok() { if eval "$2"; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL: $1"; fi; }
+ok() { if eval "$2"; then pass=$((pass+1)); else fail=$((fail+1)); fails+="          $1"$'
+'; fi; }
 dg() { "$D" "$@" 2>&1; }
+
+# Progress: each section prints one line when it finishes, with any failed
+# tests listed under it. Colour only when writing to a terminal.
+if [ -t 1 ]; then c_ok=$'\e[32m' c_bad=$'\e[31m' c_bold=$'\e[1m' c_off=$'\e[0m'
+else c_ok= c_bad= c_bold= c_off=; fi
+sec= sp=0 sf=0 fails=
+section() {
+  if [ -n "$sec" ]; then
+    if [ $((fail - sf)) -eq 0 ]; then
+      printf '  %sPASS%s  %-46s %d
+' "$c_ok" "$c_off" "$sec" $((pass - sp))
+    else
+      printf '  %sFAIL%s  %-46s %d/%d
+' "$c_bad" "$c_off" "$sec" $((pass - sp)) $((pass - sp + fail - sf))
+      printf '%s' "$fails"
+    fi
+  fi
+  sec=$1 sp=$pass sf=$fail fails=
+}
+
+echo "${c_bold}dgit test suite${c_off}"
+echo "Runs in throwaway homes under $T, removed when done."
+echo "Your real ~, dgit repo and git config are never used."
+echo
 
 mkdir -p "$T/a/.config/nvim" "$T/a/proj" "$T/b" "$T/out"
 git init -q --bare "$T/r.git"
@@ -23,6 +48,7 @@ export HOME=$T/a
 echo b > "$HOME/.bashrc"; echo n > "$HOME/.config/nvim/init.lua"
 echo l > "$HOME/.config/nvim/lazy.json"; echo junk > "$HOME/junk"
 
+section "Init and repo location"
 dg init >/dev/null
 ok "ignore rule in place on first use" 'dg status >/dev/null; [ "$(cat "$HOME/.local/share/dgit/ignore")" = "*" ]'
 ok "init twice refused" '! dg init >/dev/null'
@@ -31,6 +57,7 @@ mkdir "$T/x1" "$T/x2"
 ok "XDG_DATA_HOME respected" 'HOME=$T/x1 XDG_DATA_HOME=$T/x1/data dg init >/dev/null && [ -f "$T/x1/data/dgit/HEAD" ]'
 ok "DGIT_DIR respected" 'HOME=$T/x2 DGIT_DIR=$T/x2/repo dg init >/dev/null && [ -f "$T/x2/repo/HEAD" ]'
 
+section "Adding from inside and outside ~"
 cd "$HOME/.config/nvim"; dg add init.lua >/dev/null
 ok "relative add inside home" 'dg ls-files --full-name :/ | grep -qx .config/nvim/init.lua'
 cd "$T/out"; echo o > "$T/out/x"
@@ -41,6 +68,7 @@ ok "outside home: nothing was staged" '[ "$(dg ls-files | wc -l)" = 1 ]'
 ok "outside home: absolute path into home works" 'dg add "$HOME/.bashrc" >/dev/null && dg ls-files | grep -qx .bashrc'
 ok "outside home: repo-wide commands work" 'dg status -s | grep -q .bashrc && dg commit -qm "x" --dry-run >/dev/null'
 
+section "Paths that resolve outside ~"
 # Any path that resolves outside ~ is refused, however it's written.
 mkdir -p "$T/ext/proj"; git init -q "$T/ext/proj"; echo e > "$T/ext/proj/e"; X=$T/ext; cd "$HOME"
 for c in "add $X/proj/e" "add $X/proj" "add /" "add ../ext/proj/e" "add .config/../../ext/proj" \
@@ -50,6 +78,7 @@ done
 ok "outside ~: nothing tracked" '! dg ls-files | grep -q "^\.\./\|ext/"'
 ok "inside ~ via .. still fine" 'dg add .config/../.config/nvim/init.lua >/dev/null'
 
+section "Relative and absolute paths into ~"
 # Relative and absolute are both fine wherever they resolve inside ~.
 for f in .p1 .p2 .p3 .p4 .p5; do echo p > "$HOME/$f"; done
 ok "inside ~: ./name" 'dg add ./.p1 >/dev/null && dg ls-files | grep -qx .p1'
@@ -64,6 +93,7 @@ ok "from outside: non-path words pass untouched" '[ "$(dg config user.name)" = t
 cd "$HOME"
 cd "$HOME/.config"; ok "relative .. that stays in ~ is fine" 'dg add ../.bashrc >/dev/null'; cd "$HOME"
 
+section "Refused commands and protected paths"
 cd "$HOME"
 ok "untracked hidden from status -uall" '[ "$(dg status -s -uall | grep -c "^??")" = 0 ]'
 for c in "add ." "add ./" "add $HOME" "add :/" \
@@ -78,6 +108,7 @@ ok "allowed: add ~/.bashrc via .. from inside repo" 'dg add ../../../.bashrc >/d
 cd "$HOME"
 ok "nothing from the repo or junk staged" '! dg ls-files | grep -qE "^(\.local|junk)"'
 
+section "Commit, push, status and stash"
 dg add .config/nvim >/dev/null
 ok "directory add" 'dg ls-files | grep -qx .config/nvim/lazy.json'
 dg commit -qm one >/dev/null; dg remote add origin "$T/r.git"; dg push -q -u origin main >/dev/null
@@ -90,6 +121,7 @@ ok "stash -u stashes only tracked changes" 'dg stash -u -q && [ -f "$HOME/junk" 
 ok "stash round trip kept edit" 'tail -1 "$HOME/.bashrc" | grep -qx edit'
 dg commit -qam three
 
+section "add --all and -A"
 # add --all / -A stages tracked changes (edits and deletions), nothing new.
 echo gone > "$HOME/.gone"; dg add .gone >/dev/null; dg commit -qm gone
 echo e2 >> "$HOME/.bashrc"; rm "$HOME/.gone"; echo n > "$HOME/.newfile"
@@ -100,6 +132,7 @@ for c in "add --all" "add -A" "add -vA" "add --update" "add -u" "aa"; do
 done
 dg commit -qm all
 
+section "Files inside project repos"
 cd "$HOME/proj"; git init -q; mkdir sub; echo p > p.txt; echo s > sub/s.txt; git add .; git commit -qm p
 ok "hook env vars ignored" '[ "$(GIT_DIR=$PWD/.git GIT_INDEX_FILE=$PWD/.git/index dg ls-files --full-name :/ | grep -c p.txt)" = 0 ]'
 
@@ -132,6 +165,7 @@ dg push -q
 cd "$HOME/proj"
 ok "project repo sees only its own change" '[ "$(git status -s -uno)" = " M p.txt" ] && [ "$(git ls-files | wc -l)" = 2 ]'
 
+section "rm protection for project repos"
 # rm must not delete files that belong to a project's repo; untracking is fine.
 ok "rm refused for a file in a project repo" '! dg rm -q top.txt >/dev/null && [ -f top.txt ] && dg ls-files | grep -qx top.txt'
 ok "rm -r refused for a dir in a project repo" '! dg rm -q -r sub >/dev/null && [ -f sub/s.txt ]'
@@ -148,6 +182,7 @@ ok "plain rm of an ordinary dotfile deletes it" 'dg rm -q .rmme && [ ! -e .rmme 
 dg commit -qm rms; dg push -q; cd "$HOME/proj"
 cd "$HOME"; ok "plain git in home sees no repo" '! git status >/dev/null 2>&1'
 
+section "Clone onto a second machine"
 # Second machine: clone onto an existing file.
 echo mine > "$T/b/.bashrc"
 mkdir -p "$T/b/.config/nvim"; dg show HEAD:.config/nvim/init.lua > "$T/b/.config/nvim/init.lua"
@@ -165,6 +200,7 @@ ok "clone tracks upstream" 'HOME=$T/b dg status -sb | grep -q "origin/main"'
 ok "clone wrote no repo internals" '[ -f "$T/b/.local/share/dgit/ignore" ] && HOME=$T/b dg config remote.origin.url >/dev/null'
 ok "clone recreates nested paths" '[ "$(cat "$T/b/proj/sub/s.txt")" = s ]'
 
+section "Pull collisions"
 # Incoming file collides with a local untracked one.
 echo v > "$HOME/.vimrc"; dg add .vimrc >/dev/null; dg commit -qm v; dg push -q
 echo precious > "$T/b/.vimrc"
@@ -173,6 +209,7 @@ ok "aliased pull refuses to clobber" '! HOME=$T/b dg up -q >/dev/null && [ "$(ca
 rm "$T/b/.vimrc"
 ok "pull works once moved" 'HOME=$T/b dg pull -q >/dev/null && [ "$(cat "$T/b/.vimrc")" = v ]'
 
+section "Files matched by other ignore rules"
 # Files that some other ignore rule matches (a project's .gitignore, the
 # global excludes file) must be protected too.
 cd "$HOME/proj"; echo .env > .gitignore; echo A-env > .env
@@ -188,6 +225,7 @@ mkdir -p "$T/c/proj"; echo .env > "$T/c/proj/.gitignore"; echo C-env > "$T/c/pro
 ok "clone won't clobber files a .gitignore matches" 'HOME=$T/c dg clone "$T/r.git" >/dev/null 2>&1 && [ "$(cat "$T/c/proj/.env")" = C-env ]'
 cd "$HOME"
 
+section "Deletions and paths starting with -"
 # Deleting a tracked file inside a project repo, then adding it, stages the deletion.
 rm "$HOME/proj/abs.txt"; cd "$HOME/proj"
 ok "nested repo: add of deleted file stages removal" 'dg add abs.txt >/dev/null && ! dg ls-files | grep -qx abs.txt'
@@ -196,6 +234,7 @@ ok "nested repo: dir starting with - after --" 'dg add -- -d >/dev/null && dg ls
 cd "$HOME"; echo dash > "$HOME/-dash"
 ok "path starting with - after --" 'dg add -- -dash >/dev/null && dg ls-files | grep -qx -- -dash'
 
+section "Option guards, aliases and wrappers"
 ok "refused: -C elsewhere" '! dg -C "$T" status >/dev/null'
 ok "refused: --git-dir override" '! dg --git-dir="$T/r.git" log >/dev/null'
 ok "refused: shell alias" '! dg sh >/dev/null'
@@ -211,6 +250,7 @@ if [ "$uc" != "$HOME" ] && [ "$uc" -ef "$HOME" ]; then
   cd "$uc/.config"; ok "differently-cased cwd counts as inside home" 'dg add nvim/init.lua >/dev/null'; cd "$HOME"
 fi
 
+section "Stash pop and the ignore file"
 # stash pop runs unignored; it must not list all of $HOME.
 echo junk > "$T/b/junk"; echo z >> "$T/b/.vimrc"
 HOME=$T/b dg stash -q
@@ -220,6 +260,7 @@ ok "stash pop output stays small" '[ "$(HOME=$T/b dg stash pop | grep -c junk)" 
 rm "$HOME/.local/share/dgit/ignore"
 ok "ignore file recreated" 'dg status >/dev/null; [ -f "$HOME/.local/share/dgit/ignore" ]'
 
+section "Edge cases"
 git init -q --bare "$T/empty.git"; mkdir "$T/e"
 ok "empty clone succeeds" 'HOME=$T/e dg clone "$T/empty.git" >/dev/null'
 ok "clone extra args rejected" '! HOME=$T/x dg clone "$T/r.git" extra >/dev/null'
@@ -227,5 +268,11 @@ ok "HOME unset rejected" '! env -u HOME "$D" status >/dev/null 2>&1'
 ok "help" 'dg | grep -q "dgit init"'
 ok "--version passes through" 'dg --version | grep -q "git version"'
 
-echo "$pass passed, $fail failed"
+section ""
+echo
+if [ $fail -eq 0 ]; then
+  echo "${c_ok}All $pass tests passed${c_off} in ${SECONDS}s."
+else
+  echo "${c_bad}$fail of $((pass + fail)) tests failed${c_off} in ${SECONDS}s."
+fi
 [ $fail -eq 0 ]

@@ -43,14 +43,17 @@ staging_toggle() { # Allows for adding & removing all from staging
     if ! type -P git > /dev/null; then
         echo "Git is not installed."
     elif git rev-parse --is-inside-work-tree &> /dev/null; then
+        local branch=$(git branch --show-current)
+        local on=$(git config --get-color color.branch.current green) off=$(git config --get-color '' reset)
+        branch="* $on${branch:-detached HEAD}$off"
         if git diff --quiet && git diff --cached --quiet && [[ -z $(git ls-files --others --exclude-standard -- :/) ]]; then
-            echo "Working tree clean."
+            echo "$branch Working tree clean."
         elif ! git diff --quiet || [[ -n $(git ls-files --others --exclude-standard -- :/) ]]; then
             git add --all
-            echo "Staged all files."
+            echo "$branch Staged all files."
         else
             git reset --quiet
-            echo "Unstaged all files."
+            echo "$branch Unstaged all files."
         fi
     else
         echo "Not in a Git repository."
