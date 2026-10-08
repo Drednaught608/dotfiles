@@ -37,7 +37,7 @@ section() {
   sec=$1 sp=$pass sf=$fail fails=
 }
 
-echo "${c_bold}dgit test suite${c_off}"
+echo "${c_bold}Dotfiles Git (dgit) test suite${c_off}"
 echo "Runs in throwaway homes under $T, removed when done."
 echo "Your real ~, dgit repo and git config are never used."
 echo

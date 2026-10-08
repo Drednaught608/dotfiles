@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dgit - minimal dotfiles manager: a bare Git repo whose work tree is $HOME.
+# dgit - Dotfiles Git, a minimal dotfiles manager for $HOME.
 #
 #   dgit init            create the repo
 #   dgit clone <url>     clone dotfiles and check them out into $HOME

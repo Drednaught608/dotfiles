@@ -29,7 +29,7 @@ say() { printf '\033[1;36m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33mwarning:\033[0m %s\n' "$*" >&2; }
 die() { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
-command -v git >/dev/null || die "'git' is not installed"
+command -v git >/dev/null || die "Git is not installed"
 if command -v curl >/dev/null; then fetch() { curl -fsSL "$1" -o "$2"; }
 elif command -v wget >/dev/null; then fetch() { wget -qO "$2" "$1"; }
 else die "need curl or wget to download dgit"
