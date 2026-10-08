@@ -99,7 +99,8 @@
     nnoremap <silent> <Leader>T :silent tabedit %<CR>
     nnoremap <silent> <Leader>o :silent edit ~/.vimrc<CR>
     nnoremap <silent> <Leader>O :source ~/.vimrc<CR>:noh<CR>
-    nnoremap <silent> <Leader>go :silent edit ~/.vimrc_plugins<CR>
+    nnoremap <silent> <Leader>go :silent edit ~/.bashrc<CR>
+    nnoremap <silent> <Leader>gO :silent edit ~/.vimrc_plugins<CR>
     nnoremap <silent> <Leader>i :silent enew<CR>
     nnoremap <silent> <Leader>I :silent tabnew<CR>
     nnoremap <silent> <Leader>d :silent bdelete<CR>:ClearBufs<CR>
