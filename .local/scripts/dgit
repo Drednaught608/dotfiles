@@ -5,6 +5,7 @@
 #   dgit clone <url>     clone dotfiles and check them out into $HOME
 #   dgit add <path>...   start tracking files (everything else is ignored)
 #   dgit <git args...>   any other git command, run against $HOME
+#   dgit test            run dgit's test suite
 #
 # The repo lives in $DGIT_DIR (default: ~/.local/share/dgit). Paths may be
 # relative or absolute and are stored by their path from ~; any path that
@@ -33,6 +34,9 @@ while :; do
   [ "${d%/*}" = "$d" ] && break
   d=${d%/*}
 done
+
+# This script's own path, fixed before the cd below can break a relative $0.
+case $0 in /*|?:*) self=$0 ;; *) self=$here/$0 ;; esac
 
 # Stay put inside $HOME so relative paths work; otherwise operate from ~.
 cd "$HOME" || exit
@@ -98,7 +102,7 @@ ig() {
 # command it expands to.
 cmd=$1 adef=
 case $cmd in
-  ''|init|clone|help|add|stash|clean|status|diff|log|show|commit|push|fetch|rm|mv|\
+  ''|init|clone|help|test|add|stash|clean|status|diff|log|show|commit|push|fetch|rm|mv|\
   restore|reset|branch|tag|remote|config|ls-files|ls-tree|grep|blame|reflog|\
   checkout|switch|merge|pull|rebase|cherry-pick|revert|am|bisect|rev-parse|rev-list|\
   show-ref|cat-file|describe|shortlog|format-patch|apply|notes|gc|fsck|\
@@ -123,7 +127,7 @@ esac
 # leads into ~, pass it on as an absolute path; if it names something that
 # resolves outside ~, refuse. Anything else (refs, messages) passes as is.
 if [ -z "$inside" ]; then
-  case $cmd in ''|init|clone|help) ;; *)
+  case $cmd in ''|init|clone|help|test) ;; *)
     args=("$1") skip=
     for a in "${@:2}"; do
       if [ -n "$skip" ]; then skip=
@@ -176,7 +180,14 @@ case $cmd in
   ''|help)
     [ ${#opts[@]} -gt 0 ] && [ -z "$cmd" ] && { g; exit; }
     [ $# -gt 1 ] && { git help "${@:2}"; exit; }
-    sed -n '2,11s/^# \{0,1\}//p' "$0"
+    sed -n '2,12s/^# \{0,1\}//p' "$self"
+    ;;
+  # The suite runs dgit against throwaway homes in a temp dir. Run it with
+  # bash, so it works even where the file lost its executable bit.
+  test)
+    t=${self%/*}/tests/dgit-test
+    [ -f "$t" ] || die "no test suite at $t"
+    exec "$BASH" "$t"
     ;;
   # checkout through bisect (and stash apply/pop below) write incoming files
   # into $HOME. Git silently overwrites ignored files but refuses to clobber
