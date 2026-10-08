@@ -5,8 +5,9 @@
 #   1. fetch dgit from this repo into ~/.local/scripts
 #   2. dgit clone the dotfiles over HTTPS (public repo, so no key needed),
 #      then hard-reset $HOME to origin/main
-#   3. point origin at SSH and, if ~/.ssh/id_ed25519 exists, run updatessh
-#      to fix its permissions and check it authenticates to GitHub
+#   3. point origin at SSH, then run updatessh to fix ~/.ssh permissions and
+#      check the key authenticates to GitHub. With no ~/.ssh/id_ed25519, it
+#      first derives the key from your master password (updatessh --derive).
 #
 # Files the reset overwrites, and any previous dgit repo, are moved into
 # ~/.local/share/dotfiles first.
@@ -72,13 +73,14 @@ say "Resetting to origin/main"
 "$DGIT" remote set-url origin "$SSH_URL"
 
 if [ -f "$KEY" ]; then
-  say "Setting SSH permissions"
+  say "Using your SSH key at $KEY"
   "$HOME/.local/scripts/updatessh" || warn "the SSH check failed; fix it, then run: updatessh"
 else
-  warn "no SSH key at $KEY, so pulling and pushing the dotfiles won't work yet.
-  Copy your key pair (id_ed25519 and id_ed25519.pub) into ~/.ssh, or create one
-  with 'ssh-keygen -t ed25519' and add the .pub at https://github.com/settings/keys,
-  then run: updatessh"
+  say "No SSH key at $KEY; deriving it from your master password"
+  "$HOME/.local/scripts/updatessh" --derive ||
+    warn "the SSH key isn't set up yet, so pulling and pushing the dotfiles won't work.
+  Fix what's described above, then run: updatessh --derive
+  (or copy your key pair into ~/.ssh and run: updatessh)"
 fi
 
 say "Done. Open a new shell (or run: source ~/.bashrc) to pick up the dotfiles."

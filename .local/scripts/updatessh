@@ -2,12 +2,82 @@
 # updatessh - lock down ~/.ssh permissions so ssh accepts your keys, then
 # check the key authenticates to GitHub. Works on Linux, macOS and Git Bash.
 #
+#   updatessh                   fix permissions and check the key
+#   updatessh --derive          create the key from your master password
+#   updatessh --derive --force  same, replacing a different existing key
+#
 # Windows OpenSSH ignores Unix modes and instead rejects keys whose ACL lets
 # anyone but you (or SYSTEM) read them, so on Windows the ACLs are set too.
 
 SSH_DIR=$HOME/.ssh
+KEY=$SSH_DIR/id_ed25519
+SHOW="~${KEY#"$HOME"}"  # the key's path as you'd type it, for messages
+GH_USER=Drednaught608
 
-[ -d "$SSH_DIR" ] || { echo "updatessh: no $SSH_DIR directory" >&2; exit 1; }
+# ===========================================================================
+# FROZEN: KEY DERIVATION v1 -- everything down to END FROZEN decides which
+# key a password gives. Any change in here (a value, a flag, the salt
+# slicing, the byte prefix, swapping a tool, a "harmless" refactor) gives
+# every password a DIFFERENT key, and the key on GitHub can no longer be
+# recovered from your password. Do not edit this block.
+#
+# A deliberate change (stronger KDF, more iterations) is a new version,
+# planned on purpose, never an edit to v1:
+#   1. Add a separate v2 block (new label, e.g. 'dgit ssh v2 Drednaught608',
+#      its own derive function and known answer). Leave v1 as it is, so v1
+#      keys stay recoverable.
+#   2. Derive the v2 key and add it to GitHub (Authentication and Signing).
+#   3. Only then move machines over and remove the v1 key from GitHub.
+#
+# If the known-answer check below fails, find what changed and undo it.
+# Never edit DERIVE_CHECK to make it pass: that is what would brick keys.
+#
+# The scheme, so any tool can reproduce it: the key is the Ed25519 key whose
+# 32-byte private seed is
+#   PBKDF2-HMAC-SHA512(password, salt, DERIVE_ITER iterations, 32 bytes)
+# where salt = the first 8 bytes of SHA-256(DERIVE_LABEL), and the password
+# is its exact bytes as typed (no trailing newline).
+DERIVE_LABEL='dgit ssh v1 Drednaught608'
+DERIVE_ITER=3000000
+# Known answer: the key derive() must give for the password
+# 'updatessh known answer' with the values above. Checked before every
+# derive, so a change to anything in this block, or an openssl or ssh-keygen
+# that behaves differently, stops it instead of handing you a different key.
+# Verified with openssl's PBKDF2, openssl's kdf and Python's hashlib.
+DERIVE_CHECK='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAyQLo3cCIralgjGrA0bROvgMPkVKDJKMU5V7OxP+y5'
+
+# hex2bin <hex>: write those bytes, with nothing but printf.
+hex2bin() { local h=$1 e= i; for ((i = 0; i < ${#h}; i += 2)); do e+="\\x${h:i:2}"; done; printf "$e"; }
+
+# derive <file>: read the password on stdin and write the derived private
+# key to <file> in OpenSSH format. The password only travels through pipes,
+# never a command line, so process lists and logs never see it (openssl's
+# scrypt and Argon2 only take it as an argument).
+derive() {
+  local salt seed
+  salt=$(printf %s "$DERIVE_LABEL" | openssl dgst -sha256 -r) || return
+  seed=$(openssl enc -aes-256-cbc -pbkdf2 -md sha512 -iter "$DERIVE_ITER" -S "${salt:0:16}" -pass stdin -P) || return
+  seed=${seed#*key=} seed=${seed:0:64}
+  [[ $seed =~ ^[0-9A-F]{64}$ ]] || return
+  # The seed wrapped as a PKCS#8 Ed25519 key, then rewritten by ssh-keygen.
+  hex2bin "302e020100300506032b657004220420$seed" | openssl pkey -inform DER -out "$1" || return
+  chmod 600 "$1" && ssh-keygen -q -p -P '' -N '' -f "$1" >/dev/null
+}
+# END FROZEN: KEY DERIVATION v1
+# ===========================================================================
+
+die() { echo "updatessh: $*" >&2; exit 1; }
+
+derive= force=
+for a; do
+  case $a in
+    --derive) derive=1 ;;
+    --force) force=1 ;;
+    -h|--help) sed -n '2,7s/^# \{0,1\}//p' "$0"; exit ;;
+    *) echo "updatessh: unknown option '$a'" >&2; exit 2 ;;
+  esac
+done
+[ -z "$force" ] || [ -n "$derive" ] || die "--force only goes with --derive"
 
 case $(uname -s) in MINGW*|MSYS*|CYGWIN*) win=1 ;; *) win= ;; esac
 
@@ -23,6 +93,80 @@ lock() {  # lock <path> <unix mode>
   fi
 }
 
+# pubkey <private key file>: "type base64", without the comment.
+pubkey() { local t b; read -r t b _ < <(ssh-keygen -y -P '' -f "$1" 2>/dev/null) && echo "$t $b"; }
+
+# readpw <prompt> <var>: read a password into <var> a key at a time,
+# showing a * for each character; backspace erases one. It reads bytes, the
+# same in any locale; UTF-8 continuation bytes (0x80-0xBF) get no * of their
+# own, and backspace removes them along with the byte that starts them.
+readpw() {
+  local LC_ALL=C c p=
+  printf '%s' "$1"
+  while IFS= read -rsn1 c; do
+    case $c in
+      '') break ;;  # Enter
+      $'\x7f'|$'\b')
+        [ -n "$p" ] || continue
+        while [[ $p == *[$'\x80'-$'\xbf'] ]]; do p=${p%?}; done
+        p=${p%?}; printf '\b \b' ;;
+      [$'\x80'-$'\xbf']) p+=$c ;;
+      *) p+=$c; printf '*' ;;
+    esac
+  done
+  printf '\n'
+  printf -v "$2" %s "$p"
+}
+
+# fetch <url>: print the page, with curl or wget.
+fetch() {
+  if command -v curl >/dev/null; then curl -fsSL --max-time 10 "$1"
+  else wget -qO- --timeout=10 "$1"
+  fi
+}
+
+if [ -n "$derive" ]; then
+  command -v openssl >/dev/null && command -v ssh-keygen >/dev/null ||
+    die "--derive needs openssl and ssh-keygen"
+  mkdir -p "$SSH_DIR" && lock "$SSH_DIR" 700
+  new=$SSH_DIR/.id_ed25519.new
+  trap 'rm -f "$new"' EXIT
+  echo "updatessh: checking this system derives keys correctly..."
+  printf '%s\n' 'updatessh known answer' | derive "$new" &&
+    [ "$(pubkey "$new")" = "$DERIVE_CHECK" ] ||
+    die "the known-answer check failed, so your key would come out wrong; refusing.
+  Either the FROZEN v1 block in this script was changed (undo that), or this
+  system's openssl or ssh-keygen behaves differently (on macOS, install
+  OpenSSL 3, or copy in your existing key)."
+
+  # Read from the terminal, not stdin: under 'curl ... | bash', stdin is the
+  # script itself.
+  { readpw 'Master password: ' pw && readpw '          Again: ' pw2; } </dev/tty >/dev/tty 2>/dev/null ||
+    die "no terminal to read the password from; run 'updatessh --derive' in a terminal"
+  [ "$pw" = "$pw2" ] || die "the passwords don't match"
+  [ ${#pw} -ge 12 ] || die "use a longer password: anyone can try guesses against your public key offline"
+  echo "updatessh: deriving your key (a few seconds)..."
+  printf '%s\n' "$pw" | derive "$new" || die "deriving the key failed"
+  unset pw pw2
+
+  pub=$(pubkey "$new")
+  if [ -f "$KEY" ] && [ "$(pubkey "$KEY")" = "$pub" ]; then
+    echo "updatessh: $SHOW already is this key"
+  else
+    if [ -f "$KEY" ]; then
+      [ -n "$force" ] ||
+        die "$SHOW is a different key; to replace it, run: updatessh --derive --force"
+      old=$SSH_DIR/id_ed25519.old-$(date +%Y%m%d-%H%M%S)
+      mv "$KEY" "$old" && { [ ! -f "$KEY.pub" ] || mv "$KEY.pub" "$old.pub"; } || die "could not move the old key aside"
+      echo "updatessh: old key kept as ~${old#"$HOME"}"
+    fi
+    mv "$new" "$KEY" && echo "$pub $GH_USER (updatessh v1)" > "$KEY.pub" || die "could not write $SHOW"
+    echo "updatessh: wrote $SHOW and $SHOW.pub"
+  fi
+fi
+
+[ -f "$KEY" ] || die "no key at $SHOW: copy your key pair into ~/.ssh, or run: updatessh --derive"
+
 lock "$SSH_DIR" 700
 for f in "$SSH_DIR"/*; do
   [ -f "$f" ] || continue
@@ -37,7 +181,21 @@ echo "updatessh: permissions set on $SSH_DIR"
 out=$(ssh -T -o StrictHostKeyChecking=accept-new -o BatchMode=yes git@github.com 2>&1)
 case $out in
   *"successfully authenticated"*) echo "updatessh: ${out%%!*}!" ;;
-  *) echo "updatessh: GitHub rejected your key: $out" >&2
-     echo "  Make sure your .pub key is added at https://github.com/settings/keys" >&2
-     exit 1 ;;
+  *)
+    # A key GitHub lists but won't accept is a connection problem; one it
+    # doesn't list is either the wrong key or a new one that needs adding.
+    pub=$(pubkey "$KEY")
+    if [ -n "$pub" ] && fetch "https://github.com/$GH_USER.keys" 2>/dev/null | grep -qF "$pub"; then
+      echo "updatessh: GitHub has this key but the connection failed: $out" >&2
+    else
+      cat >&2 <<EOF
+updatessh: GitHub doesn't accept $SHOW ($out). Either:
+  - it's the wrong key. For a derived key, a mistyped password gives a
+    different key: run 'updatessh --derive --force' to try again.
+  - it's a new key. Add this at https://github.com/settings/keys, once as an
+    Authentication key and once as a Signing key (for signed commits):
+    ${pub:-$(cat "$KEY.pub" 2>/dev/null)}
+EOF
+    fi
+    exit 1 ;;
 esac
