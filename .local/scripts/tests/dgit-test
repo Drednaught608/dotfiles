@@ -225,6 +225,39 @@ mkdir -p "$T/c/proj"; echo .env > "$T/c/proj/.gitignore"; echo C-env > "$T/c/pro
 ok "clone won't clobber files a .gitignore matches" 'HOME=$T/c dg clone "$T/r.git" >/dev/null 2>&1 && [ "$(cat "$T/c/proj/.env")" = C-env ]'
 cd "$HOME"
 
+section "Pull contacts the remote once"
+# Each connection to the remote runs its upload-pack; count them.
+printf '#!/bin/sh\necho . >> "%s"\nexec git upload-pack "$@"\n' "$T/contacts" > "$T/up.sh"; chmod +x "$T/up.sh"
+mkdir "$T/p"; HOME=$T/p dg clone "$T/r.git" >/dev/null 2>&1
+P() { HOME=$T/p dg "$@"; }
+P config remote.origin.uploadpack "$T/up.sh"
+contacts() { local n=0; [ -f "$T/contacts" ] && n=$(wc -l < "$T/contacts"); rm -f "$T/contacts"; echo $((n)); }
+push_new() { echo "$1" > "$HOME/$2"; dg add "$2" >/dev/null; dg commit -qm "$1"; dg push -q; }
+push_new p1 .pull1
+ok "plain pull fast-forwards" 'P pull -q >/dev/null && [ "$(cat "$T/p/.pull1")" = p1 ]'
+ok "plain pull contacts the remote once" '[ "$(contacts)" = 1 ]'
+ok "pull with nothing new is up to date" 'P pull | grep -q "Already up to date"'
+ok "pull with nothing new contacts it once" '[ "$(contacts)" = 1 ]'
+push_new p2 .pull2
+ok "pull --ff-only fast-forwards, contacting once" 'P pull --ff-only -q >/dev/null && [ -f "$T/p/.pull2" ] && [ "$(contacts)" = 1 ]'
+ok "pull is recorded as a pull" 'P reflog -1 --format=%gs | grep -q "^pull"'
+echo l > "$T/p/.local1"; P add "$T/p/.local1" >/dev/null; P commit -qm local1
+ok "only ahead: up to date, as git pull says" 'P pull | grep -q "Already up to date" && [ "$(contacts)" = 1 ]'
+push_new p3 .pull3  # now both sides have moved on
+P config pull.ff only
+ok "diverged, pull.ff=only: refuses, as git pull does" '! P pull -q >/dev/null 2>&1 && [ ! -f "$T/p/.pull3" ] && [ "$(contacts)" = 1 ]'
+P config --unset pull.ff
+ok "diverged, no settings: git pull decides, and refuses" '! P pull -q >/dev/null 2>&1 && [ ! -f "$T/p/.pull3" ] && [ "$(contacts)" = 2 ]'
+ok "diverged, --no-rebase: git pull's merge commit" 'P pull -q --no-rebase >/dev/null && [ -f "$T/p/.pull3" ] && P log -1 --format=%s | grep -q "^Merge branch .main. of "'
+ok "diverged, --no-rebase: contacts it once" '[ "$(contacts)" = 1 ]'
+P reset -q --hard origin/main
+push_new p4 .pull4; P config pull.rebase true
+ok "pull.rebase still runs git pull, and works" 'P pull -q >/dev/null 2>&1 && [ -f "$T/p/.pull4" ] && [ "$(contacts)" = 2 ]'
+P config --unset pull.rebase; push_new p5 .pull5
+ok "aliased pull still runs git pull, and works" 'P up -q >/dev/null 2>&1 && [ -f "$T/p/.pull5" ] && [ "$(contacts)" = 2 ]'
+push_new p6 .pull6
+ok "pull with arguments still runs git pull, and works" 'P pull -q origin main >/dev/null 2>&1 && [ -f "$T/p/.pull6" ] && [ "$(contacts)" = 2 ]'
+
 section "Deletions and paths starting with -"
 # Deleting a tracked file inside a project repo, then adding it, stages the deletion.
 rm "$HOME/proj/abs.txt"; cd "$HOME/proj"

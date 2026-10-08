@@ -64,6 +64,20 @@ staging_toggle() { # Allows for adding & removing all from staging
     fi
 }
 
+git_sync() { # Pushes when you have unpushed commits, otherwise pulls
+    local ahead
+    # Counts commits on this branch that its upstream lacks; local, no network
+    if ahead=$(git rev-list --count '@{upstream}..HEAD' 2> /dev/null); then
+        if (( ahead > 0 )); then
+            git push
+        else
+            git pull --ff-only
+        fi
+    else
+        git push # No upstream yet, so push sets one up (push.autoSetupRemote)
+    fi
+}
+
 # Source Bash completion
 if [ -f /usr/share/bash-completion/bash_completion ]; then
     source /usr/share/bash-completion/bash_completion

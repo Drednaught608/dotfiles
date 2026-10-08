@@ -205,14 +205,55 @@ case $cmd in
     esac
     g "$@"
     ;;
+  # pull fetches first, to check what's incoming against your untracked
+  # files. A plain merging pull then merges that fetch itself, so the remote
+  # is contacted once; git pull would fetch all over again. Anything pull
+  # treats specially (rebase, arguments, an alias, other pull.* settings,
+  # no upstream) still runs the real git pull, as before.
   pull)
-    pos=() skip=
+    pos=() skip= fast= ff= norebase= rspec= mflags=() fq=-q
     for a in "${@:2}"; do
       [ -n "$skip" ] && { skip=; continue; }
       case $a in -s|-X|-o|-j|--depth) skip=1 ;; -*) ;; *) pos+=("$a") ;; esac
     done
-    g fetch -q "${pos[@]}" || exit
-    base=$(g merge-base HEAD FETCH_HEAD 2>/dev/null) || base=$(g hash-object -t tree --stdin </dev/null)
+    if [ "$1" = pull ] && br=$(g symbolic-ref -q --short HEAD); then
+      fast=1
+      for a in "${@:2}"; do
+        case $a in
+          --ff|--no-ff|--ff-only) ff=$a ;;
+          -q|--quiet|-v|--verbose) mflags+=("$a") ;;
+          --no-rebase) norebase=1 rspec=1 ;;
+          *) fast= ;;
+        esac
+      done
+      # Apply pull's own settings the way git pull would; any it doesn't
+      # merely pass to merge leaves the pull to git.
+      shopt -s nocasematch
+      while read -r k v; do
+        case $k in
+          pull.ff) [ -n "$ff" ] || case $v in
+              only) ff=--ff-only ;;
+              false|no|off|0) ff=--no-ff ;;
+              ''|true|yes|on|1) ff=--ff ;;
+              *) fast= ;;
+            esac ;;
+          pull.rebase|"branch.$br.rebase")
+            [ -n "$norebase" ] || case $v in false|no|off|0) rspec=1 ;; *) fast= ;; esac ;;
+          pull.*|submodule.recurse) fast= ;;
+        esac
+      done < <([ -z "$fast" ] || g config --get-regexp '^(pull\.|branch\..*\.rebase$|submodule\.recurse$)')
+      shopt -u nocasematch
+    fi
+    [ -z "$fast" ] || case " ${mflags[*]} " in *" -q "*|*" --quiet "*) ;; *) fq= ;; esac
+    g fetch $fq "${pos[@]}" || exit
+    base=$(g merge-base HEAD FETCH_HEAD 2>/dev/null) || { fast=; base=$(g hash-object -t tree --stdin </dev/null); }
+    # The first FETCH_HEAD line is the one to merge, unless marked not-for-merge.
+    [ -z "$fast" ] || { IFS= read -r l < "$DGIT_DIR/FETCH_HEAD" && [[ $l == *$'\t\t'* ]]; } || fast=
+    # Told neither rebase nor ff, git pull refuses to merge diverged
+    # branches; unless this is a fast-forward or there's nothing to do,
+    # let it say so.
+    [ -z "$fast" ] || [ -n "$rspec" ] || [ -n "$ff" ] ||
+      [ "$base" = "$(g rev-parse -q --verify HEAD)" ] || [ "$base" = "${l%%$'\t'*}" ] || fast=
     bad=()
     while IFS= read -r -d '' p; do
       { [ -e "$HOME/$p" ] || [ -L "$HOME/$p" ]; } &&
@@ -221,7 +262,11 @@ case $cmd in
     done < <(g diff -z --name-only --no-renames --diff-filter=A "$base" FETCH_HEAD)
     [ ${#bad[@]} -eq 0 ] ||
       die "pulling would overwrite these untracked files; move them aside first:$(printf '\n  ~/%s' "${bad[@]}")"
-    g "$@"
+    if [ -n "$fast" ]; then
+      GIT_REFLOG_ACTION=pull g merge --no-overwrite-ignore $ff "${mflags[@]}" FETCH_HEAD
+    else
+      g "$@"
+    fi
     ;;
   rebase|cherry-pick|revert|am|reset|bisect)
     g "$@"
