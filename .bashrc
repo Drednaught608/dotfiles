@@ -10,7 +10,6 @@ export HISTIGNORE='history:clear:cls:ls:la:ll:cd:pwd:exit:logout:bg:fg:top:htop:
 export PATH="$HOME/.local/bin:$HOME/.local/scripts:$PATH"
 
 # Aliases
-alias open='explorer'
 alias cls='clear'
 alias rm='rm -d'
 alias rn='mv'
@@ -20,11 +19,8 @@ alias ll='ls -hAl'
 alias grep='grep --color'
 alias wc='wc --lines'
 alias tldr='tldr -s'
-alias 'branch'='git branch --color=always | grep --color=never --line-buffered "\*"'
 alias diff='diff -u'
 alias Git='git'
-alias pdb='python -m pdb'
-alias pdb3='python3 -m pdb'
 alias vi-='vi -c "setlocal buftype=nofile bufhidden=hide noswapfile" -'
 alias vim-='vim -c "setlocal buftype=nofile bufhidden=hide noswapfile" -'
 alias gvim-='gvim -c "setlocal buftype=nofile bufhidden=hide noswapfile" -'
@@ -36,7 +32,7 @@ PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 # Functions
 
 git() { # Allows for dgit to trigger when in home directory
-    if [[ "$(pwd)" = "$HOME" && "$1" != "clone" && "$1" != "config" ]] && command -v dgit &> /dev/null; then
+    if [[ "$PWD" = "$HOME" && "$1" != "clone" && "$1" != "config" ]] && command -v dgit &> /dev/null; then
         command dgit "$@"
     else
         command git "$@"
@@ -44,7 +40,9 @@ git() { # Allows for dgit to trigger when in home directory
 }
 
 staging_toggle() { # Allows for adding & removing all from staging
-    if git rev-parse --is-inside-work-tree &> /dev/null; then
+    if ! type -P git > /dev/null; then
+        echo "Git is not installed."
+    elif git rev-parse --is-inside-work-tree &> /dev/null; then
         if git diff --quiet && git diff --cached --quiet && [[ -z $(git ls-files --others --exclude-standard -- :/) ]]; then
             echo "Working tree clean."
         elif ! git diff --quiet || [[ -n $(git ls-files --others --exclude-standard -- :/) ]]; then
@@ -67,9 +65,12 @@ elif [ -f /etc/bash_completion ]; then
 fi
 
 # Source local Bash settings if they exist
-if [ -f ~/.bash_aliases ]; then
-    source ~/.bash_aliases
-fi
-if [ -f ~/.bash_local ]; then
-    source ~/.bash_local
-fi
+case $OSTYPE in
+    msys*|cygwin*) os=win ;;
+    darwin*)       os=mac ;;
+    linux*)        os=linux ;;
+esac
+[ -n "$os" ] && [ -f ~/.local/bash/$os.bash ] && source ~/.local/bash/$os.bash
+unset os
+[ -f ~/.bash_aliases ] && source ~/.bash_aliases
+[ -f ~/.bash_local ] && source ~/.bash_local
