@@ -39,7 +39,7 @@ git() { # Allows for dgit to trigger when in home directory
     fi
 }
 
-staging_toggle() { # Allows for adding & removing all from staging
+git_staging() { # Allows for adding & removing all from staging
     local status branch
     if ! type -P git > /dev/null; then
         echo "Git is not installed."
@@ -76,6 +76,19 @@ git_sync() { # Pushes when you have unpushed commits, otherwise pulls
     else
         git push # No upstream yet, so push sets one up (push.autoSetupRemote)
     fi
+}
+
+git_status() {
+    git status -sb
+}
+git_branches() {
+    git branch -avv --color=always | grep -v -- ' -> '
+}
+git_log() {
+    git log --oneline -n 11 --graph
+}
+git_diff() {
+    git --no-pager diff HEAD
 }
 
 # Source Bash completion
