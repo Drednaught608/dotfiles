@@ -191,8 +191,13 @@
         autocmd FileType gitcommit let b:coc_enabled = 0
         autocmd FileType gitcommit inoremap <buffer> <C-s> <Esc>:wq<CR>
         autocmd FileType gitcommit nnoremap <buffer> <C-s> :wq<CR>
+        autocmd FileType gitcommit vnoremap <buffer> <C-s> <Esc>:wq<CR>
         autocmd FileType gitcommit inoremap <buffer> <C-q> <Esc>:%d_<Bar>wq<CR>
         autocmd FileType gitcommit nnoremap <buffer> <C-q> :%d_<Bar>wq<CR>
+        autocmd FileType gitcommit vnoremap <buffer> <C-q> <Esc>:%d_<Bar>wq<CR>
+        autocmd FileType gitcommit inoremap <buffer> <C-c> <Esc>:%d_<Bar>wq<CR>
+        autocmd FileType gitcommit nnoremap <buffer> <C-c> :%d_<Bar>wq<CR>
+        autocmd FileType gitcommit vnoremap <buffer> <C-c> <Esc>:%d_<Bar>wq<CR>
     augroup END
 
 "}}}

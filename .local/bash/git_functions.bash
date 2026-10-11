@@ -1,7 +1,11 @@
 # Git Functions
 
 git() { # Allows for dgit to trigger when in home directory
-    if [[ "$PWD" = "$HOME" && "$1" != "clone" && "$1" != "config" ]] && command -v dgit &> /dev/null; then
+    # On Windows, Ctrl+C in the commit editor is also reported as having interrupted git.exe, so
+    # Bash prints a blank line and drops the rest of the command line. A subshell takes that instead.
+    if [[ "$1" = "commit" && "$BASH_SUBSHELL" -eq 0 ]] && [[ $OSTYPE == msys* || $OSTYPE == cygwin* ]]; then
+        ( git "$@" )
+    elif [[ "$PWD" = "$HOME" && "$1" != "clone" && "$1" != "config" ]] && command -v dgit &> /dev/null; then
         command dgit "$@"
     else
         command git "$@"
@@ -114,7 +118,7 @@ git_commit_key() { # Waits for one of git_commit's prompt keys and sets REPLY to
             fi
         fi
         case $REPLY in
-            [yYnNaAcCeEqQ]) return ;;
+            [yYnNaAqQ]) return ;;
             $'\x11') REPLY=^Q; return ;;
         esac
     done
@@ -148,9 +152,9 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
 
     if [ -n "$staged" ]; then found=("${added[@]}"); else found=("${new[@]}"); fi
     if (( ${#found[@]} )); then
-        echo "These look like secrets or junk:"
+        echo "Possible secrets or junk:"
         printf '  %s\n' "${found[@]}"
-        printf 'Commit without them? [y/n, or a/c/e/q/Ctrl+Q to abort] '
+        printf 'Commit without them? [y/n] (a/q aborts) ' # Ctrl+Q and Ctrl+C abort too
         # The terminal keeps Ctrl+Q for itself (flow control); turn that off while asking, so it gets here
         tty_state=$(stty -g 2> /dev/null) && stty -ixon
         # Ctrl+C only leaves git_commit_key, so the terminal is put back below whichever key ends the wait.
