@@ -86,26 +86,28 @@ git_tracked() { # Toggles staging between "every change to tracked files, nothin
     fi
 }
 
-git_flagged() { # True if path $1 looks like a secret or junk; sets REPLY to what to list: the path, or the junk folder it is in
+git_flagged() { # True if path $1 looks like a secret or junk. Sets REPLY to what to list (the path, or the junk
+    # folder it is in) and kind to "secret" or "junk"; the caller declares kind as a local.
     local path=/$1 folder
     for folder in node_modules __pycache__ .cache .venv venv .pytest_cache .mypy_cache .ruff_cache .tox .idea; do
         if [[ $path == */"$folder"/* ]]; then
             REPLY=${path%%"/$folder/"*}/$folder/
             REPLY=${REPLY#/}
+            kind=junk
             return
         fi
     done
     REPLY=$1
     case ${1##*/} in
         .env.example|.env.sample|.env.template|.env.dist) return 1 ;; # Meant to be committed
-        .env|.env.*|*.pem|*.key|*.p12|*.pfx|*.ppk|*.jks|*.keystore|*.kdbx) ;; # Secrets
-        id_rsa|id_dsa|id_ecdsa|id_ed25519|.netrc|.pgpass|.htpasswd|credentials.json|secrets.*) ;;
-        .DS_Store|Thumbs.db|desktop.ini|*.pyc|*.pyo|.*.sw?|*~|*.tmp|.*cache) ;; # Junk
+        .env|.env.*|*.pem|*.key|*.p12|*.pfx|*.ppk|*.jks|*.keystore|*.kdbx) kind=secret ;;
+        id_rsa|id_dsa|id_ecdsa|id_ed25519|.netrc|.pgpass|.htpasswd|credentials.json|secrets.*) kind=secret ;;
+        .DS_Store|Thumbs.db|desktop.ini|*.pyc|*.pyo|.*.sw?|*~|*.tmp|.*cache) kind=junk ;;
         *) return 1 ;;
     esac
 }
 
-git_commit_key() { # Waits for one of git_commit's prompt keys and sets REPLY to it (^Q for Ctrl+Q)
+git_commit_key() { # Waits for one of git_commit's prompt keys and sets REPLY to it (^Q for Ctrl+Q); 1 and 2 count only if $1 is set
     while :; do
         IFS= read -rsn1 REPLY || REPLY=q
         # Arrow and function keys send Esc, then "[" or "O", then more, ending in a letter or "~".
@@ -119,14 +121,17 @@ git_commit_key() { # Waits for one of git_commit's prompt keys and sets REPLY to
         fi
         case $REPLY in
             [yYnNaAqQ]) return ;;
+            [12]) [ -z "$1" ] || return 0 ;;
             $'\x11') REPLY=^Q; return ;;
         esac
     done
 }
 
 git_commit() { # Commits what you staged, or everything if nothing is staged, offering to leave out secrets and junk
-    local record path key status old_trap tty_state skip= any= staged= conflict= without= tree= last_new= last_added=
-    local new=() added=() added_paths=() found=() excludes=()
+    local record path key kind i color status old_trap tty_state skip= any= staged= conflict= without= tree=
+    local last_new= last_added= red= yellow= off= both= keep=
+    local new=() new_kinds=() added=() added_kinds=() added_paths=() added_path_kinds=()
+    local found=() kinds=() excludes=() remove=()
     # One call: "? path" untracked, "1 XY ... path" / "2 XY ... path" changed (X staged, Y unstaged), "u ..." conflict
     while IFS= read -r -d '' record; do
         any=1
@@ -134,15 +139,15 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
         case $record in
             '? '*)
                 if git_flagged "${record:2}" && [ "$REPLY" != "$last_new" ]; then
-                    new+=("$REPLY"); last_new=$REPLY
+                    new+=("$REPLY"); new_kinds+=("$kind"); last_new=$REPLY
                 fi ;;
             [12]' '*)
                 [ "${record:2:1}" = . ] || staged=1
                 [ "${record:0:1}" = 1 ] || skip=1
                 path=${record#* * * * * * * * }
                 if [ "${record:2:1}" = A ] && git_flagged "$path"; then # Only files this commit would add
-                    added_paths+=("$path")
-                    [ "$REPLY" = "$last_added" ] || { added+=("$REPLY"); last_added=$REPLY; }
+                    added_paths+=("$path"); added_path_kinds+=("$kind")
+                    [ "$REPLY" = "$last_added" ] || { added+=("$REPLY"); added_kinds+=("$kind"); last_added=$REPLY; }
                 fi ;;
             'u '*) conflict=1 ;;
         esac
@@ -150,24 +155,46 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
     # Nothing to do, a conflict, or not a repo: Git says so itself
     if [ -z "$any" ] || [ -n "$conflict" ]; then git commit; return; fi
 
-    if [ -n "$staged" ]; then found=("${added[@]}"); else found=("${new[@]}"); fi
+    if [ -n "$staged" ]; then
+        found=("${added[@]}"); kinds=("${added_kinds[@]}")
+    else
+        found=("${new[@]}"); kinds=("${new_kinds[@]}")
+    fi
     if (( ${#found[@]} )); then
-        echo "Possible secrets or junk:"
-        printf '  %s\n' "${found[@]}"
-        printf 'Commit without them? [y/n] (a/q aborts) ' # Ctrl+Q and Ctrl+C abort too
+        # Secrets first in red, then junk in yellow; colors only when printing to a terminal
+        [ -t 1 ] && red=$'\e[31m' yellow=$'\e[33m' off=$'\e[m'
+        echo "Potentially unwanted files detected:"
+        # With both groups found, each label says its key: 1 or 2 keeps that group and excludes only the other
+        [[ " ${kinds[*]} " == *" secret "* && " ${kinds[*]} " == *" junk "* ]] && both=1
+        for kind in secret junk; do
+            [[ " ${kinds[*]} " == *" $kind "* ]] || continue
+            if [ "$kind" = secret ]; then
+                color=$red
+                echo "[Secrets]${both:+ (1 to keep)}"
+            else
+                color=$yellow
+                echo "[Junk]${both:+ (2 to keep)}"
+            fi
+            for i in "${!found[@]}"; do
+                [ "${kinds[i]}" != "$kind" ] || printf '  %s%s%s\n' "$color" "${found[i]}" "$off"
+            done
+        done
+        printf 'Exclude from this commit? [y/n] (a/q aborts) ' # Ctrl+Q and Ctrl+C abort too
         # The terminal keeps Ctrl+Q for itself (flow control); turn that off while asking, so it gets here
         tty_state=$(stty -g 2> /dev/null) && stty -ixon
         # Ctrl+C only leaves git_commit_key, so the terminal is put back below whichever key ends the wait.
         # It does nothing in the instant before or after that call, where "return" would leave git_commit.
         old_trap=$(trap -p INT)
         trap '[ "${FUNCNAME[0]}" != git_commit_key ] || { REPLY=^C; return; }' INT
-        git_commit_key
+        git_commit_key "$both"
         eval "${old_trap:-trap - INT}"
         [ -z "$tty_state" ] || stty "$tty_state"
         key=$REPLY
         echo "$key"
         case $key in
             [yY]) without=1 ;;
+            1) without=1 keep=secret ;; # Exclude only the junk
+            2) without=1 keep=junk ;; # Exclude only the secrets
             [nN]) ;;
             *) echo "Aborted, nothing changed."; return 1 ;;
         esac
@@ -179,8 +206,11 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
     trap : INT
     if [ -n "$staged" ]; then # Only what you staged; nothing more gets added
         if [ -n "$without" ]; then
+            for i in "${!added_paths[@]}"; do # Everything flagged, minus the group being kept
+                [ "${added_path_kinds[i]}" = "$keep" ] || remove+=("${added_paths[i]}")
+            done
             tree=$(git write-tree) &&
-                printf ':(top,literal)%s\0' "${added_paths[@]}" |
+                printf ':(top,literal)%s\0' "${remove[@]}" |
                 git rm --cached --force --quiet --pathspec-from-file=- --pathspec-file-nul
         fi && git commit
         status=$?
@@ -189,7 +219,9 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
         fi
     else # Nothing staged: stage everything, as "git add --all" would
         if [ -n "$without" ]; then
-            for path in "${found[@]}"; do excludes+=(":(top,literal,exclude)$path"); done
+            for i in "${!found[@]}"; do # Everything flagged, minus the group being kept
+                [ "${kinds[i]}" = "$keep" ] || excludes+=(":(top,literal,exclude)${found[i]}")
+            done
             git add --all -- ':/' "${excludes[@]}"
         else
             git add --all
