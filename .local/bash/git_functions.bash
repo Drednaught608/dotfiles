@@ -181,7 +181,7 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
         fi && git commit
         status=$?
         if (( status )) && [ -n "$tree" ]; then
-            git read-tree "$tree" && echo "Staging is back to how you had it."
+            git read-tree "$tree" # Back to exactly what you had staged
         fi
     else # Nothing staged: stage everything, as "git add --all" would
         if [ -n "$without" ]; then
@@ -192,7 +192,7 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
         fi && git commit
         status=$?
         if (( status )); then
-            git reset --quiet && echo "Unstaged everything again."
+            git reset --quiet # Back to nothing staged, as it was
         fi
     fi
     eval "${old_trap:-trap - INT}" # Ctrl+C behaves as it did before
