@@ -7,9 +7,21 @@
 # language cache folders
 __pycache__/
 node_modules/
+.venv/
+venv/
+.tox/
+*.pyc
+*.pyo
+
+# Hidden caches (.cache/, .pytest_cache/, .mypy_cache/, .ruff_cache/, .eslintcache, ...)
+.*cache
 
 # Vim swap files
 .*.sw*
+
+# Editor backups & temporary files
+*~
+*.tmp
 
 # ctags files
 .ctags
@@ -19,8 +31,27 @@ tags.temp
 # Mac files
 .DS_Store
 
+# Windows files
+Thumbs.db
+desktop.ini
+
 # Artifacts
 *.exe
+
+# Secrets that are never meant to be committed
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+!.env.dist
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+*.ppk
+.netrc
+.pgpass
 
 # Misc.
 .claude/
