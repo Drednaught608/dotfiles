@@ -170,10 +170,10 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
             [[ " ${kinds[*]} " == *" $kind "* ]] || continue
             if [ "$kind" = secret ]; then
                 color=$red
-                echo "[Secrets]${both:+ (1 to keep)}"
+                echo "[Secrets]${both:+ (press 1 to keep)}"
             else
                 color=$yellow
-                echo "[Junk]${both:+ (2 to keep)}"
+                echo "[Junk]${both:+ (press 2 to keep)}"
             fi
             for i in "${!found[@]}"; do
                 [ "${kinds[i]}" != "$kind" ] || printf '  %s%s%s\n' "$color" "${found[i]}" "$off"
