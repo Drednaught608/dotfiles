@@ -13,11 +13,10 @@ export PATH="$HOME/.local/bin:$HOME/.local/scripts:$PATH"
 alias cls='clear'
 alias rm='rm -d'
 alias rn='mv'
-alias ls='ls --color=auto --show-control-chars'
 alias la='ls -A'
 alias ll='ls -hAl'
 alias grep='grep --color'
-alias wc='wc --lines'
+alias wc='wc -l'
 alias tldr='tldr -s'
 alias diff='diff -u'
 alias Git='git'
@@ -29,68 +28,6 @@ alias vimplugins='ls -A1 ~/.vim/plugged 2>/dev/null | echo "$(wc -l) Vim Plugins
 # Normal Prompt
 PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 
-# Functions
-
-git() { # Allows for dgit to trigger when in home directory
-    if [[ "$PWD" = "$HOME" && "$1" != "clone" && "$1" != "config" ]] && command -v dgit &> /dev/null; then
-        command dgit "$@"
-    else
-        command git "$@"
-    fi
-}
-
-git_staging() { # Allows for adding & removing all from staging
-    local status branch
-    if ! type -P git > /dev/null; then
-        echo "Git is not installed."
-    # One call for the whole repo: "# branch.head <name>", then a line per change:
-    # "? path" untracked, "1 XY ..." / "2 XY ..." (X staged, Y unstaged, "." none), "u ..." conflict
-    elif status=$(git status --porcelain=v2 --branch --untracked-files=normal 2> /dev/null); then # Fails outside a repo
-        branch=${status#*'# branch.head '}
-        branch=${branch%%$'\n'*}
-        [[ $branch == '(detached)' ]] && branch='detached HEAD'
-        branch="* "$'\e[32m'"$branch"$'\e[m' # git branch's current-branch green
-        if [[ $status == *$'\n? '* || $status == *$'\n'[12u]' '?[!.]' '* ]]; then # Untracked or unstaged
-            git add --all
-            echo "$branch Staged all files."
-        elif [[ $status == *$'\n'[12]' '* ]]; then # Only staged
-            git reset --quiet
-            echo "$branch Unstaged all files."
-        else
-            echo "$branch Working tree clean."
-        fi
-    else
-        echo "Not in a Git repository."
-    fi
-}
-
-git_sync() { # Pushes when you have unpushed commits, otherwise pulls
-    local ahead
-    # Counts commits on this branch that its upstream lacks; local, no network
-    if ahead=$(git rev-list --count '@{upstream}..HEAD' 2> /dev/null); then
-        if (( ahead > 0 )); then
-            git push
-        else
-            git pull --ff-only
-        fi
-    else
-        git push # No upstream yet, so push sets one up (push.autoSetupRemote)
-    fi
-}
-
-git_status() {
-    git status -sb
-}
-git_branches() {
-    git branch -avv --color=always | grep -v -- ' -> '
-}
-git_log() {
-    git log --oneline -n 11 --graph
-}
-git_diff() {
-    git --no-pager diff HEAD
-}
-
 # Source Bash completion
 if [ -f /usr/share/bash-completion/bash_completion ]; then
     source /usr/share/bash-completion/bash_completion
@@ -98,13 +35,8 @@ elif [ -f /etc/bash_completion ]; then
     source /etc/bash_completion
 fi
 
-# Source local Bash settings if they exist
-case $OSTYPE in
-    msys*|cygwin*) os=win ;;
-    darwin*)       os=mac ;;
-    linux*)        os=linux ;;
-esac
-[ -z "$os" ] || [ ! -f ~/.local/bash/$os.bash ] || source ~/.local/bash/$os.bash
-unset os
+# Source os-specific & local Bash settings if they exist
+[ ! -f ~/.local/bash/os_specific.bash ] || source ~/.local/bash/os_specific.bash
+[ ! -f ~/.local/bash/git_functions.bash ] || source ~/.local/bash/git_functions.bash
 [ ! -f ~/.bash_aliases ] || source ~/.bash_aliases
 [ ! -f ~/.bash_local ] || source ~/.bash_local
