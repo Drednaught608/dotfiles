@@ -189,6 +189,7 @@
         autocmd!
         autocmd FileType gitcommit startinsert
         autocmd FileType gitcommit let b:coc_enabled = 0
+        autocmd FileType gitcommit setlocal spell spelllang=en_us
         autocmd FileType gitcommit inoremap <buffer> <C-s> <Esc>:wq<CR>
         autocmd FileType gitcommit nnoremap <buffer> <C-s> :wq<CR>
         autocmd FileType gitcommit vnoremap <buffer> <C-s> <Esc>:wq<CR>
