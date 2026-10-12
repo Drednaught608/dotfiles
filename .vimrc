@@ -190,6 +190,11 @@
         autocmd FileType gitcommit startinsert
         autocmd FileType gitcommit let b:coc_enabled = 0
         autocmd FileType gitcommit setlocal spell spelllang=en_us
+        " Spelling in plain colors: the theme's undercurl is one many terminals can't draw
+        autocmd FileType gitcommit highlight SpellBad cterm=bold,underline ctermfg=203 ctermbg=NONE gui=bold,underline guifg=#ff5f5f guibg=NONE
+        autocmd FileType gitcommit highlight SpellCap cterm=underline ctermfg=221 ctermbg=NONE gui=underline guifg=#ffd75f guibg=NONE
+        autocmd FileType gitcommit highlight SpellRare cterm=underline ctermfg=221 ctermbg=NONE gui=underline guifg=#ffd75f guibg=NONE
+        autocmd FileType gitcommit highlight SpellLocal cterm=underline ctermfg=221 ctermbg=NONE gui=underline guifg=#ffd75f guibg=NONE
         autocmd FileType gitcommit inoremap <buffer> <C-s> <Esc>:wq<CR>
         autocmd FileType gitcommit nnoremap <buffer> <C-s> :wq<CR>
         autocmd FileType gitcommit vnoremap <buffer> <C-s> <Esc>:wq<CR>
