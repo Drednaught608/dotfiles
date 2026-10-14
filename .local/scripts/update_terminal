@@ -106,8 +106,8 @@ for folder in "$HOME/AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8b
   old=
   if [ -e "$folder" ] || [ -L "$folder" ]; then
     old=$folder.bak-$(date +%Y%m%d-%H%M%S)
-    if ! mv "$folder" "$old"; then
-      echo "update_terminal: could not move $where aside; close Windows Terminal and try again" >&2
+    if ! mv "$folder" "$old" 2>/dev/null; then
+      echo "update_terminal: could not move $where aside: a program has it open. Close whatever is using it (an editor with a file from it open, an Explorer window showing it, Windows Terminal), then try again" >&2
       failed=1
       continue
     fi
