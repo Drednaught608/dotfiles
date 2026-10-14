@@ -44,13 +44,17 @@ The key's 32-byte Ed25519 seed is PBKDF2-HMAC-SHA512 of the password, with 3,000
 
 ## Windows Terminal
 
-Windows Terminal's settings live in [`~/.config/windows-terminal/settings.json`](../.config/windows-terminal/settings.json). To make Windows Terminal use them, run:
+Windows Terminal's settings live in [`~/.config/windows-terminal/settings.json`](../.config/windows-terminal/settings.json), next to the files they use: the Bash profile's background image (`japan.jpg`) and icon (`bash.png`), and the JetBrains Mono NL font (see [CREDITS.md](../.config/windows-terminal/CREDITS.md) for their sources and licences). The settings refer to the images as `%USERPROFILE%\.config\windows-terminal\...`, which works on any machine. To make Windows Terminal use all of this, run:
 
 ```bash
 update_terminal
 ```
 
-It replaces the `settings.json` of each installed Windows Terminal (the normal and Preview versions, and Scoop's portable installs) with a symbolic link to the dotfiles' file, keeping the old one as `settings.json.bak-<timestamp>`; versions that aren't installed are skipped. From then on, changes made in Windows Terminal's settings are saved straight into the dotfiles. It uses a symbolic link because Windows Terminal saves by replacing the file, and so does `git`, which would silently split a hard link into two copies. Making a symbolic link without administrator rights needs Developer Mode (Settings > System > For developers). Run it again if a reinstall resets Windows Terminal's settings.
+For each installed Windows Terminal (the normal and Preview versions, and Scoop's portable installs), it turns the folder that holds its settings into a directory junction to `~/.config/windows-terminal`, keeping the old folder as `<folder>.bak-<timestamp>`; versions that aren't installed are skipped. Close every Windows Terminal window and open it again afterwards. From then on, changes made in Windows Terminal's settings are saved straight into the dotfiles, and changes to the dotfiles' file (a `dgit pull`, an edit) show up in a running Windows Terminal.
+
+It links the whole folder because Windows Terminal reloads its settings only when it sees `settings.json` change inside that folder; with just the file linked, a running Windows Terminal never notices changes. Windows Terminal's own state files (remembered windows and the like) therefore also live in `~/.config/windows-terminal`, untracked, so add files there by name, not the whole folder. Junctions need no administrator rights or Developer Mode. Run it again if a reinstall resets Windows Terminal's settings folder.
+
+It also installs the fonts in that folder (`*.ttf`, `*.otf`) for your user only, which needs no administrator rights: each is copied into your own fonts folder and registered under `HKCU`, the way Windows does when you choose "Install", and fonts already installed are left alone. To use another font, put its file in the folder, run `update_terminal`, and set it in the settings.
 
 ## Usage
 

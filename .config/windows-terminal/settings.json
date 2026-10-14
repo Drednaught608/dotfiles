@@ -58,7 +58,7 @@
         "list": 
         [
             {
-                "backgroundImage": "C:\\Users\\Michael\\Pictures\\wallpapers\\japan.jpg",
+                "backgroundImage": "%USERPROFILE%\\.config\\windows-terminal\\japan.jpg",
                 "backgroundImageAlignment": "bottom",
                 "backgroundImageOpacity": 0.3,
                 "backgroundImageStretchMode": "fill",
@@ -73,6 +73,7 @@
                 },
                 "guid": "{9470ad6d-7aea-4aea-9357-68be2de00ca7}",
                 "hidden": false,
+                "icon": "%USERPROFILE%\\.config\\windows-terminal\\bash.png",
                 "name": "Bash",
                 "padding": "0",
                 "scrollbarState": "always",

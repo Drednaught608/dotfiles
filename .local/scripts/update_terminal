@@ -1,17 +1,26 @@
 #!/usr/bin/env bash
 # update_terminal - make Windows Terminal use the settings in your dotfiles by
-# replacing each installed copy's settings.json with a symbolic link to
-# ~/.config/windows-terminal/settings.json. Covers the normal and Preview
-# installs and Scoop's portable ones; any that aren't installed are skipped.
+# turning the folder each installed copy keeps its settings in into a
+# directory junction to ~/.config/windows-terminal. Covers the normal and
+# Preview installs and Scoop's portable ones; any that aren't installed are
+# skipped.
 #
-# A symbolic link, not a hard link: Windows Terminal saves by renaming a new
-# file into place (resolving symbolic links first), and git updates files the
-# same way, so a hard link would quietly split into two copies. Making a
-# symbolic link without administrator rights needs Developer Mode. The
-# settings file that was there is kept as settings.json.bak-<date>.
+# Why the whole folder, not just settings.json: Windows Terminal reloads its
+# settings when it sees settings.json change inside that folder. With only the
+# file linked, saves land in ~/.config instead, so a running Windows Terminal
+# never notices; with the folder linked, it does, whether the change comes from
+# its Settings screen, a dgit pull or an editor. Its own state files (remembered
+# windows and the like) then live in ~/.config/windows-terminal too; dgit only
+# tracks the settings.json you add. Junctions need no administrator rights or
+# Developer Mode. The folder that was there is kept as <folder>.bak-<date>.
+#
+# It also installs the fonts kept in ~/.config/windows-terminal (*.ttf, *.otf)
+# for your user only, so no administrator rights are needed: copied into your
+# own fonts folder and registered under HKCU, the same way Windows does when
+# you choose "Install". Fonts that are already installed are left alone.
 
-SETTINGS=$HOME/.config/windows-terminal/settings.json
-SHOW="~${SETTINGS#"$HOME"}"  # the path as you'd type it, for messages
+DIR=$HOME/.config/windows-terminal
+SHOW="~${DIR#"$HOME"}"  # the path as you'd type it, for messages
 
 die() { echo "update_terminal: $*" >&2; exit 1; }
 
@@ -19,37 +28,111 @@ case $(uname -s) in
   MINGW*|MSYS*|CYGWIN*) ;;
   *) die "Windows Terminal is Windows-only; nothing to do here" ;;
 esac
-[ -f "$SETTINGS" ] || die "no $SHOW to link to"
+[ -f "$DIR/settings.json" ] || die "no $SHOW/settings.json to link to"
 
-linked= failed=
-for dir in "$HOME/AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState" \
-           "$HOME/AppData/Local/Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState" \
-           "$HOME/scoop/persist/windows-terminal/settings" \
-           "$HOME/scoop/persist/windows-terminal-preview/settings"; do
-  [ -d "$dir" ] || continue  # not installed
-  where="~${dir#"$HOME"}"
-  if [ "$dir/settings.json" -ef "$SETTINGS" ]; then
-    echo "update_terminal: already linked: $where/settings.json"
+linked= changed= failed=
+
+# Fonts. PowerShell reads each font's family and style names from the file and
+# registers it as "<family> <style> (TrueType)", as Windows names them.
+read -r -d '' install_fonts <<'EOF'
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'  # no progress records in the output
+try {
+    $dir = Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts'
+    $key = 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts'
+    $machineKey = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Fonts'
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    if (-not (Test-Path $key)) { New-Item -Force $key | Out-Null }
+    Add-Type -AssemblyName PresentationCore
+    Add-Type -Namespace DotfilesFonts -Name Native -MemberDefinition @'
+[DllImport("gdi32.dll", CharSet = CharSet.Unicode)] public static extern int AddFontResourceW(string file);
+[DllImport("user32.dll")] public static extern IntPtr SendMessageTimeoutW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
+'@
+    $added = 0
+    foreach ($src in $env:FONT_FILES -split "`n" | Where-Object { $_ }) {
+        $font = New-Object System.Windows.Media.GlyphTypeface ([uri]$src)
+        $type = if ($src -like '*.otf') { 'OpenType' } else { 'TrueType' }
+        $name = '{0} {1} ({2})' -f $font.Win32FamilyNames['en-us'], $font.Win32FaceNames['en-us'], $type
+        $file = Split-Path $src -Leaf
+        # Already installed, for this user or for everyone, with its file in place?
+        $installed = foreach ($k in $key, $machineKey) {
+            $path = (Get-ItemProperty $k -ErrorAction SilentlyContinue).$name
+            if ($path -and -not [IO.Path]::IsPathRooted($path)) { $path = Join-Path "$env:WINDIR\Fonts" $path }
+            if ($path -and (Test-Path -LiteralPath $path)) { $path }
+        }
+        if ($installed) { "font already installed: $name"; continue }
+        $dest = Join-Path $dir $file
+        # -LiteralPath: [ and ] in a path are wildcards to PowerShell otherwise
+        Copy-Item -Force -LiteralPath $src -Destination $dest
+        Set-ItemProperty $key -Name $name -Value $dest
+        [void][DotfilesFonts.Native]::AddFontResourceW($dest)  # usable now, not only after signing in again
+        "font installed: $name"
+        $added++
+    }
+    if ($added) {  # tell running programs the font list changed (WM_FONTCHANGE)
+        $r = [IntPtr]::Zero
+        [void][DotfilesFonts.Native]::SendMessageTimeoutW([IntPtr]0xffff, 0x1D, [IntPtr]::Zero, [IntPtr]::Zero, 2, 1000, [ref]$r)
+    }
+} catch {
+    "could not install fonts: $($_.Exception.Message)"
+    exit 1
+}
+EOF
+fonts=
+for f in "$DIR"/*.ttf "$DIR"/*.otf; do
+  [ -f "$f" ] && fonts+=$(cygpath -w "$f")$'\n'
+done
+if [ -n "$fonts" ]; then
+  # Sent encoded (UTF-16, base64), so no quote in the script is mangled on the way.
+  FONT_FILES=$fonts powershell.exe -NoProfile -NonInteractive -EncodedCommand \
+    "$(printf '%s' "$install_fonts" | iconv -f UTF-8 -t UTF-16LE | base64 -w 0)" 2>/dev/null |
+    tr -d '\r' | sed 's/^/update_terminal: /'
+  [ "${PIPESTATUS[0]}" = 0 ] || failed=1
+fi
+
+for folder in "$HOME/AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState" \
+              "$HOME/AppData/Local/Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState" \
+              "$HOME/scoop/persist/windows-terminal/settings" \
+              "$HOME/scoop/persist/windows-terminal-preview/settings"; do
+  [ -d "${folder%/*}" ] || continue  # that Windows Terminal isn't installed
+  where="~${folder#"$HOME"}"
+  if [ "$folder" -ef "$DIR" ]; then
+    echo "update_terminal: already linked: $where"
     linked=1
     continue
   fi
-  # Make the link first, and only then move the old settings aside.
-  if MSYS=winsymlinks:nativestrict ln -s "$SETTINGS" "$dir/settings.json.new" 2>/dev/null; then
-    if [ -e "$dir/settings.json" ] || [ -L "$dir/settings.json" ]; then
-      old=settings.json.bak-$(date +%Y%m%d-%H%M%S)
-      mv "$dir/settings.json" "$dir/$old" || die "could not move the old settings aside in $where"
-      echo "update_terminal: old settings kept as $where/$old"
+
+  # Move the current folder aside (kept, not deleted), then make the junction.
+  old=
+  if [ -e "$folder" ] || [ -L "$folder" ]; then
+    old=$folder.bak-$(date +%Y%m%d-%H%M%S)
+    if ! mv "$folder" "$old"; then
+      echo "update_terminal: could not move $where aside; close Windows Terminal and try again" >&2
+      failed=1
+      continue
     fi
-    mv "$dir/settings.json.new" "$dir/settings.json" || die "could not put the link in place in $where"
-    echo "update_terminal: linked $where/settings.json to $SHOW"
-    linked=1
+  fi
+  # PowerShell makes the junction; the paths go in through the environment,
+  # so spaces and other characters in them need no quoting.
+  if WT_LINK=$(cygpath -w "$folder") WT_TARGET=$(cygpath -w "$DIR") powershell.exe -NoProfile -NonInteractive \
+       -Command 'New-Item -ItemType Junction -Path $env:WT_LINK -Target $env:WT_TARGET -ErrorAction Stop | Out-Null' \
+       >/dev/null 2>&1; then
+    # Keep what Windows Terminal remembers (window layouts, dismissed messages).
+    if [ -n "$old" ] && [ -f "$old/state.json" ] && [ ! -e "$DIR/state.json" ]; then
+      cp -p "$old/state.json" "$DIR/state.json"
+    fi
+    echo "update_terminal: linked $where to $SHOW"
+    [ -z "$old" ] || echo "update_terminal: the old folder is kept as ~${old#"$HOME"}"
+    linked=1 changed=1
   else
-    echo "update_terminal: could not make a symbolic link in $where" >&2
+    echo "update_terminal: could not make a junction at $where" >&2
+    # Put the old folder back where it was.
+    [ -z "$old" ] || mv "$old" "$folder"
     failed=1
   fi
 done
 
-[ -z "$failed" ] ||
-  die "turn on Developer Mode (Settings > System > For developers), then run: update_terminal"
-[ -n "$linked" ] ||
-  die "no Windows Terminal settings folder found; start Windows Terminal once, then run: update_terminal"
+[ -z "$failed" ] || die "some installs weren't linked; see above, then run: update_terminal"
+[ -n "$linked" ] || die "no Windows Terminal install found"
+[ -z "$changed" ] ||
+  echo "update_terminal: close every Windows Terminal window, then open it again to load these settings"

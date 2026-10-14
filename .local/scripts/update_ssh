@@ -170,8 +170,9 @@ if [ -n "$derive" ]; then
   OpenSSL 3, or copy in your existing key)."
 
   # Read from the terminal, not stdin: under 'curl ... | bash', stdin is the
-  # script itself.
-  { readpw 'Master password: ' pw && readpw '          Again: ' pw2; } </dev/tty >/dev/tty 2>/dev/null ||
+  # script itself. 2>/dev/null comes first so that, with no terminal, opening
+  # /dev/tty fails quietly and only the message below is shown.
+  { readpw 'Master password: ' pw && readpw '          Again: ' pw2; } 2>/dev/null </dev/tty >/dev/tty ||
     die "no terminal to read the password from; run 'update_ssh --derive' in a terminal"
   [ "$pw" = "$pw2" ] || die "the passwords don't match"
   [ ${#pw} -ge 12 ] || die "use a longer password: anyone can try guesses against your public key offline"
