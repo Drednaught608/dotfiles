@@ -24,7 +24,7 @@ The [install script](install.sh):
 2. Runs `dgit clone https://github.com/Drednaught608/dotfiles.git`, then `dgit reset --hard origin/main` so `$HOME` matches the repo exactly.
 3. Switches `origin` to `git@github.com:Drednaught608/dotfiles.git` for pushing.
 4. Runs `update_ssh` (below) on your existing `~/.ssh/id_ed25519`, or, if there isn't one, `update_ssh --derive` to create it from your master password.
-5. On Windows, runs `update_terminal --auto` (below) so Windows Terminal uses the dotfiles' settings.
+5. On Windows, runs `update_terminal --auto` (below) so Windows Terminal uses the dotfiles settings.
 
 Before the reset, any existing file that would be overwritten is copied to `~/.local/share/dotfiles/backup-<timestamp>/`, and an existing dgit repo is moved there too, not deleted.
 
@@ -51,11 +51,13 @@ update_terminal          # link each install the way you chose (as --auto if you
 update_terminal --auto   # or -a: choose for me: file links if Developer Mode is on, else live
 update_terminal --file   # or -f: choose file links: each install's settings.json
 update_terminal --live   # or -l: choose live: each install's whole settings folder
+update_terminal --choice # or -c: show your choice and how each install is linked
+update_terminal --path   # or -p: show each installed Windows Terminal's settings folder
 ```
 
-It covers each installed Windows Terminal (the normal and Preview versions, and Scoop's portable installs); versions that aren't installed are skipped. Either way, Windows Terminal reads and saves the dotfiles' `settings.json`, so changes made in its Settings show up as changes to commit. Close every Windows Terminal window and open it again afterwards; opening another window isn't enough, because it joins the one already running.
+It covers each installed Windows Terminal (the normal and Preview versions, and Scoop's portable installs); versions that aren't installed are skipped. Either way, Windows Terminal reads and saves the dotfiles `settings.json`, so changes made in its Settings show up as changes to commit. Close every Windows Terminal window and open it again afterwards; opening another window isn't enough, because it joins the one already running.
 
-`--file` and `--live` save that as your choice, for this machine only, in `~/.local/share/dotfiles/terminal-link`. `--auto` (what the installer runs) chooses for you and saves it: file links if Developer Mode is on, else live. Plain `update_terminal` keeps to the saved choice, or chooses as `--auto` if nothing is saved yet. If file links are your choice but Developer Mode has since been turned off, so none can be made, a plain run links live for now and says so, keeping file links as your choice; once Developer Mode is back on, the next plain run switches back. The output says what it chose and why, and each switch from one way to the other.
+`--file` and `--live` save that as your choice, for this machine only, in `~/.local/share/dotfiles/terminal-link`. `--auto` (what the installer runs) chooses for you and saves it: file links if Developer Mode is on, else live. Plain `update_terminal` keeps to the saved choice, or chooses as `--auto` if nothing is saved yet. If file links are your choice but Developer Mode has since been turned off, so none can be made, a plain run links live for now and says so, keeping file links as your choice; once Developer Mode is back on, the next plain run switches back. The output starts with your choice, `[file mode]` or `[live mode]`, and why; then a line per install (linked, unchanged or switched) and per font; then a one-line summary of what changed.
 
 The two differ in when a running Windows Terminal notices a change, since it only watches its own settings folder for one:
 

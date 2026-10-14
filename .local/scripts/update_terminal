@@ -10,8 +10,10 @@
 #                            else live (-a)
 #   update_terminal --file   choose file links: link each copy's settings.json (-f)
 #   update_terminal --live   choose live: link each copy's whole settings folder (-l)
+#   update_terminal --choice show your choice and how each copy is linked (-c)
+#   update_terminal --path   show each installed copy's settings folder (-p)
 #
-# Either way, Windows Terminal reads and saves the dotfiles' settings.json. The
+# Either way, Windows Terminal reads and saves the dotfiles settings.json. The
 # difference is when a running Windows Terminal notices a change: it watches its
 # own settings folder for one. With only the file linked, changes are saved
 # outside that folder, so it sees them, even ones made in its own Settings,
@@ -29,26 +31,39 @@
 # for your user only, so no administrator rights are needed: copied into your
 # own fonts folder and registered under HKCU, the same way Windows does when
 # you choose "Install". Fonts that are already installed are left alone.
+#
+# Colours are used when the output is a terminal; NO_COLOR=1 turns them off.
 
 DIR=$HOME/.config/windows-terminal
 SHOW="~${DIR#"$HOME"}"  # the path as you'd type it, for messages
 STAMP=$(date +%Y%m%d-%H%M%S)
 
-die() { echo "update_terminal: $*" >&2; exit 1; }
-say() { echo "update_terminal: $*"; }
-warn() { echo "update_terminal: $*" >&2; }
-show() { echo "~${1#"$HOME"}"; }
+if [ -t 1 ] && [ -z "${NO_COLOR-}" ]; then
+  B=$'\e[1m' D=$'\e[2m' G=$'\e[32m' Y=$'\e[33m' R=$'\e[31m' C=$'\e[36m' N=$'\e[0m'
+else
+  B= D= G= Y= R= C= N=
+fi
+if [ -t 2 ] && [ -z "${NO_COLOR-}" ]; then EY=$'\e[33m' ER=$'\e[31m' EN=$'\e[0m'; else EY= ER= EN=; fi
 
-mode=  # auto, file, live, or empty to keep each copy's link
+die() { echo "${ER}update_terminal: $*${EN}" >&2; exit 1; }
+warn() { echo "${EY}update_terminal: $*${EN}" >&2; }
+show() { echo "~${1#"$HOME"}"; }
+row() { printf '  %-34s %s\n' "$1" "$2"; }  # name, then what happened
+tag() { if [ "$1" = file ]; then printf '%s' "$B$G[file mode]$N"; else printf '%s' "$B$C[live mode]$N"; fi; }
+kind() { if [ "$1" = file ]; then printf '%-11s' "file link"; else printf '%-11s' "live"; fi; }
+
+mode=  # auto, file, live, choice, path, or empty to keep to the saved choice
 for a; do
   case $a in
     -a|--auto) want=auto ;;
     -f|--file) want=file ;;
     -l|--live) want=live ;;
-    -h|--help) sed -n '2,12s/^# \{0,1\}//p' "$0"; exit ;;
+    -c|--choice) want=choice ;;
+    -p|--path) want=path ;;
+    -h|--help) sed -n '2,14s/^# \{0,1\}//p' "$0"; exit ;;
     *) echo "update_terminal: unknown option '$a'" >&2; exit 2 ;;
   esac
-  [ -z "$mode" ] || [ "$mode" = "$want" ] || die "use only one of --auto, --file and --live"
+  [ -z "$mode" ] || [ "$mode" = "$want" ] || die "use only one of --auto, --file, --live, --choice and --path"
   mode=$want
 done
 
@@ -58,161 +73,22 @@ case $(uname -s) in
 esac
 [ -f "$DIR/settings.json" ] || die "no $SHOW/settings.json to link to"
 
-linked= changed= failed=
+FOLDERS=("$HOME/AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState"
+         "$HOME/AppData/Local/Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState"
+         "$HOME/scoop/persist/windows-terminal/settings"
+         "$HOME/scoop/persist/windows-terminal-preview/settings")
+NAMES=("Windows Terminal" "Windows Terminal Preview"
+       "Windows Terminal (Scoop)" "Windows Terminal Preview (Scoop)")
 
-# Fonts. PowerShell reads each font's family and style names from the file and
-# registers it as "<family> <style> (TrueType)", as Windows names them.
-read -r -d '' install_fonts <<'EOF'
-$ErrorActionPreference = 'Stop'
-$ProgressPreference = 'SilentlyContinue'  # no progress records in the output
-try {
-    $dir = Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts'
-    $key = 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts'
-    $machineKey = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Fonts'
-    New-Item -ItemType Directory -Force -Path $dir | Out-Null
-    if (-not (Test-Path $key)) { New-Item -Force $key | Out-Null }
-    Add-Type -AssemblyName PresentationCore
-    Add-Type -Namespace DotfilesFonts -Name Native -MemberDefinition @'
-[DllImport("gdi32.dll", CharSet = CharSet.Unicode)] public static extern int AddFontResourceW(string file);
-[DllImport("user32.dll")] public static extern IntPtr SendMessageTimeoutW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
-'@
-    $added = 0
-    foreach ($src in $env:FONT_FILES -split "`n" | Where-Object { $_ }) {
-        $font = New-Object System.Windows.Media.GlyphTypeface ([uri]$src)
-        $type = if ($src -like '*.otf') { 'OpenType' } else { 'TrueType' }
-        $name = '{0} {1} ({2})' -f $font.Win32FamilyNames['en-us'], $font.Win32FaceNames['en-us'], $type
-        $file = Split-Path $src -Leaf
-        # Already installed, for this user or for everyone, with its file in place?
-        $installed = foreach ($k in $key, $machineKey) {
-            $path = (Get-ItemProperty $k -ErrorAction SilentlyContinue).$name
-            if ($path -and -not [IO.Path]::IsPathRooted($path)) { $path = Join-Path "$env:WINDIR\Fonts" $path }
-            if ($path -and (Test-Path -LiteralPath $path)) { $path }
-        }
-        if ($installed) { "font already installed: $name"; continue }
-        $dest = Join-Path $dir $file
-        # -LiteralPath: [ and ] in a path are wildcards to PowerShell otherwise
-        Copy-Item -Force -LiteralPath $src -Destination $dest
-        Set-ItemProperty $key -Name $name -Value $dest
-        [void][DotfilesFonts.Native]::AddFontResourceW($dest)  # usable now, not only after signing in again
-        "font installed: $name"
-        $added++
-    }
-    if ($added) {  # tell running programs the font list changed (WM_FONTCHANGE)
-        $r = [IntPtr]::Zero
-        [void][DotfilesFonts.Native]::SendMessageTimeoutW([IntPtr]0xffff, 0x1D, [IntPtr]::Zero, [IntPtr]::Zero, 2, 1000, [ref]$r)
-    }
-} catch {
-    "could not install fonts: $($_.Exception.Message)"
-    exit 1
-}
-EOF
-fonts=
-for f in "$DIR"/*.ttf "$DIR"/*.otf; do
-  [ -f "$f" ] && fonts+=$(cygpath -w "$f")$'\n'
-done
-if [ -n "$fonts" ]; then
-  # Sent encoded (UTF-16, base64), so no quote in the script is mangled on the way.
-  FONT_FILES=$fonts powershell.exe -NoProfile -NonInteractive -EncodedCommand \
-    "$(printf '%s' "$install_fonts" | iconv -f UTF-8 -t UTF-16LE | base64 -w 0)" 2>/dev/null |
-    tr -d '\r' | sed 's/^/update_terminal: /'
-  [ "${PIPESTATUS[0]}" = 0 ] || failed=1
-fi
-
-# make_junction <link> <target>: PowerShell makes it; the paths go in through
-# the environment, so spaces and other characters in them need no quoting.
-make_junction() {
-  WT_LINK=$(cygpath -w "$1") WT_TARGET=$(cygpath -w "$2") powershell.exe -NoProfile -NonInteractive \
-    -Command 'New-Item -ItemType Junction -Path $env:WT_LINK -Target $env:WT_TARGET -ErrorAction Stop | Out-Null' \
-    >/dev/null 2>&1
-}
-
-busy() {
-  warn "could not move $1 aside: a program has it open. Close whatever is using it (an editor with a file from it open, an Explorer window showing it, Windows Terminal), then try again"
-}
-
-# Windows Terminal's own files, which live beside the settings while linked live.
-STATE_FILES="state.json elevated-state.json"
-
-# link_folder <folder>: --live. The settings folder becomes a junction to $DIR.
-link_folder() {
-  local folder=$1 where old= name was_file=
-  where=$(show "$folder")
-  if [ -L "$folder" ] && [ "$folder" -ef "$DIR" ]; then
-    say "already linked (live): $where"
-    linked=1
-    return
-  fi
-  [ -L "$folder/settings.json" ] && [ "$folder/settings.json" -ef "$DIR/settings.json" ] && was_file=1
-  # Move the current folder aside (kept, not deleted), then make the junction.
-  if [ -e "$folder" ] || [ -L "$folder" ]; then
-    old=$folder.bak-$STAMP
-    mv "$folder" "$old" 2>/dev/null || { busy "$where"; failed=1; return; }
-  fi
-  if make_junction "$folder" "$DIR"; then
-    # Keep what Windows Terminal remembers (window layouts, dismissed messages).
-    for name in $STATE_FILES; do
-      if [ -n "$old" ] && [ -f "$old/$name" ] && [ ! -e "$DIR/$name" ]; then cp -p "$old/$name" "$DIR/$name"; fi
-    done
-    if [ -n "$was_file" ]; then
-      say "switched $where from a file link to live (linked to $SHOW)"
-    else
-      say "linked $where to $SHOW (live)"
-    fi
-    [ -z "$old" ] || say "kept the old folder as $(show "$old")"
-    linked=1 changed=1
+# link_state <folder>: how it's linked now: file, live, none, or other (a link
+# to somewhere else).
+link_state() {
+  if [ -L "$1" ]; then
+    if [ "$1" -ef "$DIR" ]; then echo live; else echo other; fi
+  elif [ -L "$1/settings.json" ] && [ "$1/settings.json" -ef "$DIR/settings.json" ]; then
+    echo file
   else
-    warn "could not make a junction at $where"
-    [ -z "$old" ] || mv "$old" "$folder"  # put it back
-    failed=1
-  fi
-}
-
-# link_file <folder>: the default. The folder's settings.json becomes a file
-# link to $DIR/settings.json.
-link_file() {
-  local folder=$1 where file was_live= name
-  where=$(show "$folder")
-  file=$folder/settings.json
-  # Switching from --live: make the folder a real one again, with Windows
-  # Terminal's own files moved back out of the dotfiles folder.
-  if [ -L "$folder" ]; then
-    if ! [ "$folder" -ef "$DIR" ]; then
-      warn "$where is a link to somewhere else; leaving it alone"
-      failed=1
-      return
-    fi
-    rm "$folder" 2>/dev/null && mkdir -p "$folder" || { busy "$where"; failed=1; return; }
-    for name in $STATE_FILES; do
-      [ ! -e "$DIR/$name" ] || mv "$DIR/$name" "$folder/$name"
-    done
-    was_live=1
-  fi
-  if [ -L "$file" ] && [ "$file" -ef "$DIR/settings.json" ]; then
-    say "already linked (file link): $(show "$file")"
-    linked=1
-    return
-  fi
-  # Make the link first, and only then move the old settings aside.
-  if MSYS=winsymlinks:nativestrict ln -s "$DIR/settings.json" "$file.new" 2>/dev/null; then
-    if [ -e "$file" ] || [ -L "$file" ]; then
-      mv "$file" "$file.bak-$STAMP" && say "kept the old settings as $(show "$file.bak-$STAMP")"
-    fi
-    mv "$file.new" "$file"
-    if [ -n "$was_live" ]; then
-      say "switched $where from live to a file link (settings.json linked to $SHOW/settings.json)"
-    else
-      say "linked $(show "$file") to $SHOW/settings.json (file link)"
-    fi
-    linked=1 changed=1
-  else
-    warn "could not make a file link in $where: file links need Developer Mode (Settings > System > For developers); or use: update_terminal --live"
-    if [ -n "$was_live" ]; then  # go back to how it was
-      for name in $STATE_FILES; do
-        [ ! -e "$folder/$name" ] || mv "$folder/$name" "$DIR/$name"
-      done
-      rmdir "$folder" && make_junction "$folder" "$DIR" && say "left $where linked live, as it was"
-    fi
-    failed=1
+    echo none
   fi
 }
 
@@ -233,56 +109,269 @@ dev_mode() {
   [ "$file_links" = yes ]
 }
 
-FOLDERS=("$HOME/AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState"
-         "$HOME/AppData/Local/Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState"
-         "$HOME/scoop/persist/windows-terminal/settings"
-         "$HOME/scoop/persist/windows-terminal-preview/settings")
-
 # Your choice, file or live, saved for this machine only. --file and --live
 # save that one; --auto chooses for you, file if Developer Mode is on, else
 # live; a plain run keeps to the saved choice, or chooses as --auto if none.
 CHOICE=$HOME/.local/share/dotfiles/terminal-link
 saved=$(cat "$CHOICE" 2>/dev/null)
 case $saved in file|live) ;; *) saved= ;; esac
-from=  # why --auto chose what it did
+
+# The way to link when Developer Mode decides it.
+auto_choice() { if dev_mode; then echo file; else echo live; fi; }
+dm_state() { if dev_mode; then echo on; else echo off; fi; }
+
+if [ "$mode" = path ]; then
+  found=
+  for i in "${!FOLDERS[@]}"; do
+    [ -d "${FOLDERS[i]%/*}" ] || continue
+    found=1
+    echo "${NAMES[i]}:"
+    echo "  $(show "${FOLDERS[i]}")"
+  done
+  [ -n "$found" ] || die "no Windows Terminal install found"
+  echo "${D}The dotfiles settings:$N"
+  echo "  ${D}$SHOW$N"
+  exit
+fi
+
+if [ "$mode" = choice ]; then
+  if [ -z "$saved" ]; then
+    echo "${B}[no choice yet]${N} update_terminal would choose $(tag "$(auto_choice)"): Developer Mode is $(dm_state)"
+  else
+    note=
+    [ "$saved" = live ] || dev_mode || note=", ${Y}but live for now: Developer Mode is off$N"
+    echo "$(tag "$saved") your saved choice$note"
+  fi
+  found=
+  for i in "${!FOLDERS[@]}"; do
+    [ -d "${FOLDERS[i]%/*}" ] || continue
+    found=1
+    case $(link_state "${FOLDERS[i]}") in
+      file) row "${NAMES[i]}" "file link" ;;
+      live) row "${NAMES[i]}" "live" ;;
+      other) row "${NAMES[i]}" "${R}linked somewhere else$N" ;;
+      none) row "${NAMES[i]}" "${Y}not linked$N" ;;
+    esac
+  done
+  [ -n "$found" ] || row "(no Windows Terminal installed)" ""
+  [ -z "$saved" ] || echo "${D}saved in $(show "$CHOICE")$N"
+  exit
+fi
+
 case $mode in
-  file|live) choice=$mode ;;
+  file|live) choice=$mode why="chosen with --$mode" ;;
+  auto) choice=$(auto_choice) why="chosen by --auto: Developer Mode is $(dm_state)" ;;
   *)
-    choice=
-    [ "$mode" = auto ] || choice=$saved
-    if [ -z "$choice" ]; then
-      if dev_mode; then choice=file from=" (chosen since Developer Mode is on)"
-      else choice=live from=" (chosen since Developer Mode is off)"; fi
+    if [ -n "$saved" ]; then
+      choice=$saved why="your saved choice"
+    else
+      choice=$(auto_choice) why="first choice, made as --auto: Developer Mode is $(dm_state)"
     fi ;;
 esac
 if [ "$choice" != "$saved" ]; then
-  mkdir -p "${CHOICE%/*}" && echo "$choice" > "$CHOICE" ||
+  if mkdir -p "${CHOICE%/*}" && echo "$choice" > "$CHOICE"; then
+    why+=" ${D}(saved)$N"
+  else
     warn "could not save your choice in $(show "$CHOICE")"
-  say "saved your choice for this machine: $choice links$from; plain update_terminal keeps to it, and --auto, --file or --live changes it"
-elif [ "$mode" = auto ]; then
-  say "your choice for this machine stays $choice links$from"
-elif [ -z "$mode" ]; then
-  say "linking with your choice for this machine: $choice links (--auto, --file or --live changes it)"
+  fi
+fi
+# A plain run with file links chosen, but none can be made: link the whole
+# folder for now. The choice stays file, so a later run switches back.
+fell_back=
+if [ "$choice" = file ] && [ "$mode" != file ] && ! dev_mode; then
+  fell_back=1 why+=", ${Y}but live for now: Developer Mode is off$N"
+fi
+echo "$(tag "$choice") $why"
+
+failed=
+
+# Fonts. PowerShell reads each font's family and style names from the file and
+# registers it as "<family> <style> (TrueType)", as Windows names them. It
+# prints a line per font: "<status><tab><name>".
+read -r -d '' install_fonts <<'EOF'
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'  # no progress records in the output
+try {
+    $dir = Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts'
+    $key = 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts'
+    $machineKey = 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Fonts'
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    if (-not (Test-Path $key)) { New-Item -Force $key | Out-Null }
+    Add-Type -AssemblyName PresentationCore
+    Add-Type -Namespace DotfilesFonts -Name Native -MemberDefinition @'
+[DllImport("gdi32.dll", CharSet = CharSet.Unicode)] public static extern int AddFontResourceW(string file);
+[DllImport("user32.dll")] public static extern IntPtr SendMessageTimeoutW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, uint flags, uint timeout, out IntPtr result);
+'@
+    $added = 0
+    foreach ($src in $env:FONT_FILES -split "`n" | Where-Object { $_ }) {
+        $font = New-Object System.Windows.Media.GlyphTypeface ([uri]$src)
+        $type = if ($src -like '*.otf') { 'OpenType' } else { 'TrueType' }
+        $shown = '{0} {1}' -f $font.Win32FamilyNames['en-us'], $font.Win32FaceNames['en-us']
+        $name = '{0} ({1})' -f $shown, $type
+        $file = Split-Path $src -Leaf
+        # Already installed, for this user or for everyone, with its file in place?
+        $installed = foreach ($k in $key, $machineKey) {
+            $path = (Get-ItemProperty $k -ErrorAction SilentlyContinue).$name
+            if ($path -and -not [IO.Path]::IsPathRooted($path)) { $path = Join-Path "$env:WINDIR\Fonts" $path }
+            if ($path -and (Test-Path -LiteralPath $path)) { $path }
+        }
+        if ($installed) { "already`t$shown"; continue }
+        $dest = Join-Path $dir $file
+        # -LiteralPath: [ and ] in a path are wildcards to PowerShell otherwise
+        Copy-Item -Force -LiteralPath $src -Destination $dest
+        Set-ItemProperty $key -Name $name -Value $dest
+        [void][DotfilesFonts.Native]::AddFontResourceW($dest)  # usable now, not only after signing in again
+        "installed`t$shown"
+        $added++
+    }
+    if ($added) {  # tell running programs the font list changed (WM_FONTCHANGE)
+        $r = [IntPtr]::Zero
+        [void][DotfilesFonts.Native]::SendMessageTimeoutW([IntPtr]0xffff, 0x1D, [IntPtr]::Zero, [IntPtr]::Zero, 2, 1000, [ref]$r)
+    }
+} catch {
+    "error`t$($_.Exception.Message)"
+    exit 1
+}
+EOF
+fonts=
+for f in "$DIR"/*.ttf "$DIR"/*.otf; do
+  [ -f "$f" ] && fonts+=$(cygpath -w "$f")$'\n'
+done
+fonts_added=0
+if [ -n "$fonts" ]; then
+  # Sent encoded (UTF-16, base64), so no quote in the script is mangled on the way.
+  while IFS=$'\t' read -r status name; do
+    case $status in
+      already) row "$name" "$(printf '%-11s' font)${D}already installed$N" ;;
+      installed) row "$name" "$(printf '%-11s' font)${G}installed$N"; fonts_added=$((fonts_added + 1)) ;;
+      error) warn "could not install fonts: $name"; failed=1 ;;
+    esac
+  done < <(FONT_FILES=$fonts powershell.exe -NoProfile -NonInteractive -EncodedCommand \
+             "$(printf '%s' "$install_fonts" | iconv -f UTF-8 -t UTF-16LE | base64 -w 0)" 2>/dev/null | tr -d '\r')
 fi
 
-fell_back=
-for folder in "${FOLDERS[@]}"; do
-  [ -d "${folder%/*}" ] || continue  # that Windows Terminal isn't installed
-  if [ "$choice" = live ]; then
-    link_folder "$folder"
-  elif [ "$mode" = file ] || dev_mode; then
-    link_file "$folder"
+# make_junction <link> <target>: PowerShell makes it; the paths go in through
+# the environment, so spaces and other characters in them need no quoting.
+make_junction() {
+  WT_LINK=$(cygpath -w "$1") WT_TARGET=$(cygpath -w "$2") powershell.exe -NoProfile -NonInteractive \
+    -Command 'New-Item -ItemType Junction -Path $env:WT_LINK -Target $env:WT_TARGET -ErrorAction Stop | Out-Null' \
+    >/dev/null 2>&1
+}
+
+busy() {
+  warn "could not move $1 aside: a program has it open. Close whatever is using it (an editor with a file from it open, an Explorer window showing it, Windows Terminal), then try again"
+}
+
+# Windows Terminal's own files, which live beside the settings while linked live.
+STATE_FILES="state.json elevated-state.json"
+
+# The link functions set, for the row that's printed after them:
+#   result  new, same, switched or failed
+#   kept    the old folder or settings moved aside, if any
+#   note    for a failure, how it was left
+
+# link_folder <folder>: live. The settings folder becomes a junction to $DIR.
+link_folder() {
+  local folder=$1 where name
+  where=$(show "$folder")
+  if [ "$before" = live ]; then result=same; return; fi
+  # Move the current folder aside (kept, not deleted), then make the junction.
+  if [ -e "$folder" ] || [ -L "$folder" ]; then
+    kept=$folder.bak-$STAMP
+    mv "$folder" "$kept" 2>/dev/null || { busy "$where"; kept= result=failed; return; }
+  fi
+  if make_junction "$folder" "$DIR"; then
+    # Keep what Windows Terminal remembers (window layouts, dismissed messages).
+    for name in $STATE_FILES; do
+      if [ -n "$kept" ] && [ -f "$kept/$name" ] && [ ! -e "$DIR/$name" ]; then cp -p "$kept/$name" "$DIR/$name"; fi
+    done
+    if [ "$before" = file ]; then result=switched; else result=new; fi
   else
-    # A plain run with file links saved, but none can be made: link the whole
-    # folder for now. The choice stays file, so a later run switches back.
-    link_folder "$folder"
-    fell_back=1
+    warn "$label: could not make a junction at $where"
+    [ -z "$kept" ] || mv "$kept" "$folder"  # put it back
+    kept= result=failed
+  fi
+}
+
+# link_file <folder>: the folder's settings.json becomes a file link to
+# $DIR/settings.json.
+link_file() {
+  local folder=$1 where file name
+  where=$(show "$folder")
+  file=$folder/settings.json
+  if [ "$before" = file ]; then result=same; return; fi
+  if [ "$before" = other ]; then
+    warn "$label: $where is a link to somewhere else; leaving it alone"
+    result=failed
+    return
+  fi
+  # Switching from live: make the folder a real one again, with Windows
+  # Terminal's own files moved back out of the dotfiles folder.
+  if [ "$before" = live ]; then
+    rm "$folder" 2>/dev/null && mkdir -p "$folder" || { busy "$where"; result=failed; return; }
+    for name in $STATE_FILES; do
+      [ ! -e "$DIR/$name" ] || mv "$DIR/$name" "$folder/$name"
+    done
+  fi
+  # Make the link first, and only then move the old settings aside.
+  if MSYS=winsymlinks:nativestrict ln -s "$DIR/settings.json" "$file.new" 2>/dev/null; then
+    if [ -e "$file" ] || [ -L "$file" ]; then
+      kept=$file.bak-$STAMP
+      mv "$file" "$kept"
+    fi
+    mv "$file.new" "$file"
+    if [ "$before" = live ]; then result=switched; else result=new; fi
+  else
+    warn "$label: no file link made: that needs Developer Mode (Settings > System > For developers); or use: update_terminal --live"
+    if [ "$before" = live ]; then  # go back to how it was
+      for name in $STATE_FILES; do
+        [ ! -e "$folder/$name" ] || mv "$folder/$name" "$DIR/$name"
+      done
+      rmdir "$folder" && make_junction "$folder" "$DIR" && note="left live, as it was"
+    fi
+    result=failed
+  fi
+}
+
+found= n_new=0 n_same=0 n_to_live=0 n_to_file=0 n_failed=0
+for i in "${!FOLDERS[@]}"; do
+  folder=${FOLDERS[i]}
+  [ -d "${folder%/*}" ] || continue  # that Windows Terminal isn't installed
+  found=1
+  if [ "$choice" = live ] || [ -n "$fell_back" ]; then how=live; else how=file; fi
+  before=$(link_state "$folder") result= kept= note= label=${NAMES[i]}
+  if [ "$how" = live ]; then link_folder "$folder"; else link_file "$folder"; fi
+  case $result in
+    same) row "${NAMES[i]}" "$(kind "$how")${D}unchanged$N"; n_same=$((n_same + 1)) ;;
+    new) row "${NAMES[i]}" "$(kind "$how")${G}linked$N"; n_new=$((n_new + 1)) ;;
+    switched)
+      row "${NAMES[i]}" "$(kind "$how")${Y}switched from $([ "$how" = live ] && echo "file link" || echo live)$N"
+      if [ "$how" = live ]; then n_to_live=$((n_to_live + 1)); else n_to_file=$((n_to_file + 1)); fi ;;
+    failed) row "${NAMES[i]}" "${R}not linked${note:+ ($note)}$N"; n_failed=$((n_failed + 1)) ;;
+  esac
+  if [ -n "$kept" ]; then
+    if [ -d "$kept" ]; then what="old folder"; else what="old settings.json"; fi
+    echo "    ${D}$what kept beside it as ${kept##*/}$N"
   fi
 done
+[ -n "$found" ] || die "no Windows Terminal install found"
 
+# Summary.
+parts=()
+[ "$n_new" = 0 ] || parts+=("$n_new newly linked ($( [ "$how" = live ] && echo live || echo file))")
+[ "$n_to_live" = 0 ] || parts+=("$n_to_live switched file -> live")
+[ "$n_to_file" = 0 ] || parts+=("$n_to_file switched live -> file")
+[ "$fonts_added" = 0 ] || parts+=("$fonts_added font$([ "$fonts_added" = 1 ] || echo s) installed")
+[ "$n_failed" = 0 ] || parts+=("${R}$n_failed not linked$N")
+if [ ${#parts[@]} = 0 ]; then
+  echo "${B}Summary:${N} no changes"
+else
+  summary=$(printf '%s, ' "${parts[@]}")
+  echo "${B}Summary:${N} ${summary%, }"
+fi
 [ -z "$fell_back" ] ||
-  say "Developer Mode is off, so linked live for now instead of with file links, your choice; once it's back on (Settings > System > For developers), run update_terminal and it switches back to file links"
-[ -z "$failed" ] || die "some installs weren't linked; see above, then run: update_terminal${mode:+ --$mode}"
-[ -n "$linked" ] || die "no Windows Terminal install found"
-[ -z "$changed" ] ||
-  say "close every Windows Terminal window (opening another isn't enough), then open it again to load these settings"
+  echo "${Y}Turn on Developer Mode (Settings > System > For developers), then run update_terminal to go back to file links.$N"
+[ $((n_new + n_to_live + n_to_file)) = 0 ] ||
+  echo "Close every Windows Terminal window (opening another isn't enough), then reopen it to load these settings."
+[ -z "$failed" ] && [ "$n_failed" = 0 ] ||
+  die "fix what's described above, then run: update_terminal${mode:+ --$mode}"
