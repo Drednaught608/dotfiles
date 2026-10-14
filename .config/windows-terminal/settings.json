@@ -16,6 +16,7 @@
     [
         "Windows.Terminal.Azure",
         "Windows.Terminal.PowershellCore",
+        "Windows.Terminal.SSH",
         "Windows.Terminal.VisualStudio",
         "Windows.Terminal.Wsl",
         "Git"
