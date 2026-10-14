@@ -24,7 +24,7 @@ The [install script](install.sh):
 2. Runs `dgit clone https://github.com/Drednaught608/dotfiles.git`, then `dgit reset --hard origin/main` so `$HOME` matches the repo exactly.
 3. Switches `origin` to `git@github.com:Drednaught608/dotfiles.git` for pushing.
 4. Runs `update_ssh` (below) on your existing `~/.ssh/id_ed25519`, or, if there isn't one, `update_ssh --derive` to create it from your master password.
-5. On Windows, runs `update_terminal` (below) so Windows Terminal uses the dotfiles' settings.
+5. On Windows, runs `update_terminal --auto` (below) so Windows Terminal uses the dotfiles' settings.
 
 Before the reset, any existing file that would be overwritten is copied to `~/.local/share/dotfiles/backup-<timestamp>/`, and an existing dgit repo is moved there too, not deleted.
 
@@ -47,12 +47,26 @@ The key's 32-byte Ed25519 seed is PBKDF2-HMAC-SHA512 of the password, with 3,000
 Windows Terminal's settings live in [`~/.config/windows-terminal/settings.json`](../.config/windows-terminal/settings.json), next to the files they use: the Bash profile's background image (`japan.jpg`) and icon (`bash.png`), and the JetBrains Mono NL font (see [CREDITS.md](../.config/windows-terminal/CREDITS.md) for their sources and licences). The settings refer to the images as `%USERPROFILE%\.config\windows-terminal\...`, which works on any machine. To make Windows Terminal use all of this, run:
 
 ```bash
-update_terminal
+update_terminal          # link each install the way you chose (as --auto if you haven't yet)
+update_terminal --auto   # or -a: choose for me: file links if Developer Mode is on, else live
+update_terminal --file   # or -f: choose file links: each install's settings.json
+update_terminal --live   # or -l: choose live: each install's whole settings folder
 ```
 
-For each installed Windows Terminal (the normal and Preview versions, and Scoop's portable installs), it turns the folder that holds its settings into a directory junction to `~/.config/windows-terminal`, keeping the old folder as `<folder>.bak-<timestamp>`; versions that aren't installed are skipped. Close every Windows Terminal window and open it again afterwards. From then on, changes made in Windows Terminal's settings are saved straight into the dotfiles, and changes to the dotfiles' file (a `dgit pull`, an edit) show up in a running Windows Terminal.
+It covers each installed Windows Terminal (the normal and Preview versions, and Scoop's portable installs); versions that aren't installed are skipped. Either way, Windows Terminal reads and saves the dotfiles' `settings.json`, so changes made in its Settings show up as changes to commit. Close every Windows Terminal window and open it again afterwards; opening another window isn't enough, because it joins the one already running.
 
-It links the whole folder because Windows Terminal reloads its settings only when it sees `settings.json` change inside that folder; with just the file linked, a running Windows Terminal never notices changes. Windows Terminal's own state files (remembered windows and the like) therefore also live in `~/.config/windows-terminal`, untracked, so add files there by name, not the whole folder. Junctions need no administrator rights or Developer Mode. Run it again if a reinstall resets Windows Terminal's settings folder.
+`--file` and `--live` save that as your choice, for this machine only, in `~/.local/share/dotfiles/terminal-link`. `--auto` (what the installer runs) chooses for you and saves it: file links if Developer Mode is on, else live. Plain `update_terminal` keeps to the saved choice, or chooses as `--auto` if nothing is saved yet. If file links are your choice but Developer Mode has since been turned off, so none can be made, a plain run links live for now and says so, keeping file links as your choice; once Developer Mode is back on, the next plain run switches back. The output says what it chose and why, and each switch from one way to the other.
+
+The two differ in when a running Windows Terminal notices a change, since it only watches its own settings folder for one:
+
+| | `update_terminal --file` | `update_terminal --live` |
+|---|---|---|
+| Links | `settings.json` (a file link) | the whole settings folder (a directory junction) |
+| A change, from its Settings, a `dgit pull` or an edit, shows up | after a full restart | at once |
+| Needs | Developer Mode (Settings > System > For developers) | nothing; but no program may have that folder open while it's set up |
+| Windows Terminal's own files (remembered windows and the like) | stay in its folder | sit in `~/.config/windows-terminal`, untracked |
+
+Running it with the other option switches over, and anything it replaces is kept as `<name>.bak-<timestamp>`. Run it again if a reinstall resets Windows Terminal's settings folder.
 
 It also installs the fonts in that folder (`*.ttf`, `*.otf`) for your user only, which needs no administrator rights: each is copied into your own fonts folder and registered under `HKCU`, the way Windows does when you choose "Install", and fonts already installed are left alone. To use another font, put its file in the folder, run `update_terminal`, and set it in the settings.
 

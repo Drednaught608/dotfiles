@@ -87,8 +87,8 @@ fi
 case $(uname -s) in
   MINGW*|MSYS*|CYGWIN*)
     say "Linking Windows Terminal's settings to the dotfiles"
-    "$HOME/.local/scripts/update_terminal" ||
-      warn "Windows Terminal isn't using the dotfiles' settings yet; fix what's described above, then run: update_terminal" ;;
+    "$HOME/.local/scripts/update_terminal" --auto ||
+      warn "Windows Terminal isn't using the dotfiles' settings yet; fix what's described above, then run: update_terminal --auto" ;;
 esac
 
 say "Done. Open a new shell (or run: source ~/.bashrc) to pick up the dotfiles."
