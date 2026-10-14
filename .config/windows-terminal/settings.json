@@ -1,0 +1,100 @@
+{
+    "$help": "https://aka.ms/terminal-documentation",
+    "$schema": "https://aka.ms/terminal-profiles-schema",
+    "actions": 
+    [
+        {
+            "command": "paste",
+            "id": "User.paste"
+        }
+    ],
+    "alwaysShowTabs": false,
+    "copyFormatting": "none",
+    "copyOnSelect": false,
+    "defaultProfile": "{9470ad6d-7aea-4aea-9357-68be2de00ca7}",
+    "disabledProfileSources": 
+    [
+        "Windows.Terminal.Azure",
+        "Windows.Terminal.PowershellCore",
+        "Windows.Terminal.VisualStudio",
+        "Windows.Terminal.Wsl",
+        "Git"
+    ],
+    "initialCols": 96,
+    "initialRows": 23,
+    "keybindings": 
+    [
+        {
+            "id": null,
+            "keys": "shift+insert"
+        },
+        {
+            "id": null,
+            "keys": "ctrl+shift+c"
+        },
+        {
+            "id": null,
+            "keys": "alt+shift+d"
+        },
+        {
+            "id": null,
+            "keys": "ctrl+shift+f"
+        },
+        {
+            "id": "Terminal.PasteFromClipboard",
+            "keys": "ctrl+shift+v"
+        }
+    ],
+    "launchMode": "default",
+    "newTabMenu": 
+    [
+        {
+            "type": "remainingProfiles"
+        }
+    ],
+    "profiles": 
+    {
+        "defaults": {},
+        "list": 
+        [
+            {
+                "backgroundImage": "C:\\Users\\Michael\\Pictures\\wallpapers\\japan.jpg",
+                "backgroundImageAlignment": "bottom",
+                "backgroundImageOpacity": 0.3,
+                "backgroundImageStretchMode": "fill",
+                "bellStyle": "none",
+                "closeOnExit": "always",
+                "commandline": "C:\\Program Files\\Git\\bin\\bash.exe",
+                "cursorShape": "filledBox",
+                "font": 
+                {
+                    "face": "JetBrains Mono NL",
+                    "size": 13
+                },
+                "guid": "{9470ad6d-7aea-4aea-9357-68be2de00ca7}",
+                "hidden": false,
+                "name": "Bash",
+                "padding": "0",
+                "scrollbarState": "always",
+                "startingDirectory": "%USERPROFILE%"
+            },
+            {
+                "commandline": "%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
+                "hidden": false,
+                "name": "Windows PowerShell"
+            },
+            {
+                "commandline": "%SystemRoot%\\System32\\cmd.exe",
+                "guid": "{0caa0dad-35be-5f56-a8ff-afceeeaa6101}",
+                "hidden": false,
+                "name": "Command Prompt"
+            }
+        ]
+    },
+    "schemes": [],
+    "showTabsInTitlebar": false,
+    "showTerminalTitleInTitlebar": false,
+    "themes": [],
+    "warning.multiLinePaste": "never"
+}

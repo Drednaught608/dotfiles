@@ -9,6 +9,7 @@ export GIT_CONFIG_GLOBAL=$T/gitconfig GIT_CONFIG_NOSYSTEM=1
 unset DGIT_DIR XDG_DATA_HOME
 git config --global user.name t; git config --global user.email t@t
 git config --global init.defaultBranch main
+git config --global help.format man  # so "--help" tests never open a web browser
 git config --global alias.up pull; git config --global alias.aa 'add -A'
 git config --global alias.sh '!echo hi'; git config --global alias.untrack 'rm --cached'
 echo '*.secret' > "$T/global-ignore"; git config --global core.excludesFile "$T/global-ignore"
@@ -300,6 +301,11 @@ ok "clone extra args rejected" '! HOME=$T/x dg clone "$T/r.git" extra >/dev/null
 ok "HOME unset rejected" '! env -u HOME "$D" status >/dev/null 2>&1'
 ok "help" 'dg | grep -q "dgit init"'
 ok "--version passes through" 'dg --version | grep -q "git version"'
+mkdir "$T/hlp"
+ok "<command> --help is git's help, not the command (init makes no repo)" 'HOME=$T/hlp dg init --help >/dev/null 2>&1; [ ! -e "$T/hlp/.local/share/dgit" ]'
+ok "--help reaches git even for refused commands" '! dg clean --help 2>&1 | grep -q refusing'
+ok "a lone <command> -h shows git's usage" 'dg add -h | grep -q "usage: git add"'
+ok "-h with more arguments stays an option (grep -h)" 'out=$(dg grep -h -e more -- .bashrc) && [ -n "$out" ] && ! printf %s "$out" | grep -q "^\.bashrc:"'
 
 section ""
 echo

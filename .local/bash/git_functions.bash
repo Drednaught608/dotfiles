@@ -5,7 +5,9 @@ git() { # Allows for dgit to trigger when in home directory
     # Bash prints a blank line and drops the rest of the command line. A subshell takes that instead.
     if [[ "$1" = "commit" && "$BASH_SUBSHELL" -eq 0 ]] && [[ $OSTYPE == msys* || $OSTYPE == cygwin* ]]; then
         ( git "$@" )
-    elif [[ "$PWD" = "$HOME" && "$1" != "clone" && "$1" != "config" ]] && command -v dgit &> /dev/null; then
+    # Bare "git", "git --help" and "git -h" are about git itself, so they never go to dgit
+    elif [[ "$PWD" = "$HOME" && $# -gt 0 && "$1" != "--help" && "$1" != "-h" && "$1" != "clone" && "$1" != "config" ]] &&
+        command -v dgit &> /dev/null; then
         command dgit "$@"
     else
         command git "$@"

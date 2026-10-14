@@ -5,9 +5,9 @@
 #   1. fetch dgit from this repo into ~/.local/scripts
 #   2. dgit clone the dotfiles over HTTPS (public repo, so no key needed),
 #      then hard-reset $HOME to origin/main
-#   3. point origin at SSH, then run updatessh to fix ~/.ssh permissions and
+#   3. point origin at SSH, then run update_ssh to fix ~/.ssh permissions and
 #      check the key authenticates to GitHub. With no ~/.ssh/id_ed25519, it
-#      first derives the key from your master password (updatessh --derive).
+#      first derives the key from your master password (update_ssh --derive).
 #
 # Files the reset overwrites, and any previous dgit repo, are moved into
 # ~/.local/share/dotfiles first.
@@ -74,13 +74,21 @@ say "Resetting to origin/main"
 
 if [ -f "$KEY" ]; then
   say "Using your SSH key at $KEY"
-  "$HOME/.local/scripts/updatessh" || warn "the SSH check failed; fix it, then run: updatessh"
+  "$HOME/.local/scripts/update_ssh" || warn "the SSH check failed; fix it, then run: update_ssh"
 else
   say "No SSH key at $KEY; deriving it from your master password"
-  "$HOME/.local/scripts/updatessh" --derive ||
+  "$HOME/.local/scripts/update_ssh" --derive ||
     warn "the SSH key isn't set up yet, so pulling and pushing the dotfiles won't work.
-  Fix what's described above, then run: updatessh --derive
-  (or copy your key pair into ~/.ssh and run: updatessh)"
+  Fix what's described above, then run: update_ssh --derive
+  (or copy your key pair into ~/.ssh and run: update_ssh)"
 fi
+
+# On Windows, point Windows Terminal at the dotfiles' settings.
+case $(uname -s) in
+  MINGW*|MSYS*|CYGWIN*)
+    say "Linking Windows Terminal's settings to the dotfiles"
+    "$HOME/.local/scripts/update_terminal" ||
+      warn "Windows Terminal isn't using the dotfiles' settings yet; fix what's described above, then run: update_terminal" ;;
+esac
 
 say "Done. Open a new shell (or run: source ~/.bashrc) to pick up the dotfiles."

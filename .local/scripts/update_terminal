@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# update_terminal - make Windows Terminal use the settings in your dotfiles by
+# replacing each installed copy's settings.json with a symbolic link to
+# ~/.config/windows-terminal/settings.json. Covers the normal and Preview
+# installs and Scoop's portable ones; any that aren't installed are skipped.
+#
+# A symbolic link, not a hard link: Windows Terminal saves by renaming a new
+# file into place (resolving symbolic links first), and git updates files the
+# same way, so a hard link would quietly split into two copies. Making a
+# symbolic link without administrator rights needs Developer Mode. The
+# settings file that was there is kept as settings.json.bak-<date>.
+
+SETTINGS=$HOME/.config/windows-terminal/settings.json
+SHOW="~${SETTINGS#"$HOME"}"  # the path as you'd type it, for messages
+
+die() { echo "update_terminal: $*" >&2; exit 1; }
+
+case $(uname -s) in
+  MINGW*|MSYS*|CYGWIN*) ;;
+  *) die "Windows Terminal is Windows-only; nothing to do here" ;;
+esac
+[ -f "$SETTINGS" ] || die "no $SHOW to link to"
+
+linked= failed=
+for dir in "$HOME/AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState" \
+           "$HOME/AppData/Local/Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState" \
+           "$HOME/scoop/persist/windows-terminal/settings" \
+           "$HOME/scoop/persist/windows-terminal-preview/settings"; do
+  [ -d "$dir" ] || continue  # not installed
+  where="~${dir#"$HOME"}"
+  if [ "$dir/settings.json" -ef "$SETTINGS" ]; then
+    echo "update_terminal: already linked: $where/settings.json"
+    linked=1
+    continue
+  fi
+  # Make the link first, and only then move the old settings aside.
+  if MSYS=winsymlinks:nativestrict ln -s "$SETTINGS" "$dir/settings.json.new" 2>/dev/null; then
+    if [ -e "$dir/settings.json" ] || [ -L "$dir/settings.json" ]; then
+      old=settings.json.bak-$(date +%Y%m%d-%H%M%S)
+      mv "$dir/settings.json" "$dir/$old" || die "could not move the old settings aside in $where"
+      echo "update_terminal: old settings kept as $where/$old"
+    fi
+    mv "$dir/settings.json.new" "$dir/settings.json" || die "could not put the link in place in $where"
+    echo "update_terminal: linked $where/settings.json to $SHOW"
+    linked=1
+  else
+    echo "update_terminal: could not make a symbolic link in $where" >&2
+    failed=1
+  fi
+done
+
+[ -z "$failed" ] ||
+  die "turn on Developer Mode (Settings > System > For developers), then run: update_terminal"
+[ -n "$linked" ] ||
+  die "no Windows Terminal settings folder found; start Windows Terminal once, then run: update_terminal"

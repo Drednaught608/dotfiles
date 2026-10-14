@@ -82,6 +82,14 @@ while :; do
   esac
 done
 
+# "<command> --help" and a lone "<command> -h" are Git's own help, which needs
+# no repo, so plain git gets them as typed, by the same rules git uses. Going
+# on would push --help out of first place, where git looks for it, or run the
+# command itself (init would create the repo, pull would fetch).
+if [ "$2" = --help ] || { [ $# -eq 2 ] && [ "$2" = -h ]; }; then
+  exec git "${opts[@]}" "$@"
+fi
+
 # repo: git pointed at the dgit repo and $HOME (an array, so xargs can run it
 # too). g: that, ignoring your global excludes and fsmonitor (which would
 # watch all of $HOME). ig: same, but with every untracked file in $HOME

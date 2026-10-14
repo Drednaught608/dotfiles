@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# updatessh - lock down ~/.ssh permissions so ssh accepts your keys, then
+# update_ssh - lock down ~/.ssh permissions so ssh accepts your keys, then
 # check the key authenticates to GitHub. Works on Linux, macOS and Git Bash.
 #
-#   updatessh                   fix permissions and check the key
-#   updatessh --derive          create the key from your master password
-#   updatessh --derive --force  same, replacing a different existing key
+#   update_ssh                   fix permissions and check the key
+#   update_ssh --derive          create the key from your master password
+#   update_ssh --derive --force  same, replacing a different existing key
 #
 # Windows OpenSSH ignores Unix modes and instead rejects keys whose ACL lets
 # anyone but you (or SYSTEM) read them, so on Windows the ACLs are set too.
@@ -96,7 +96,7 @@ derive() {
 # END FROZEN: KEY DERIVATION v1
 # ===========================================================================
 
-die() { echo "updatessh: $*" >&2; exit 1; }
+die() { echo "update_ssh: $*" >&2; exit 1; }
 
 derive= force=
 for a; do
@@ -104,7 +104,7 @@ for a; do
     --derive) derive=1 ;;
     --force) force=1 ;;
     -h|--help) sed -n '2,7s/^# \{0,1\}//p' "$0"; exit ;;
-    *) echo "updatessh: unknown option '$a'" >&2; exit 2 ;;
+    *) echo "update_ssh: unknown option '$a'" >&2; exit 2 ;;
   esac
 done
 [ -z "$force" ] || [ -n "$derive" ] || die "--force only goes with --derive"
@@ -161,7 +161,7 @@ if [ -n "$derive" ]; then
   mkdir -p "$SSH_DIR" && lock "$SSH_DIR" 700
   new=$SSH_DIR/.id_ed25519.new
   trap 'rm -f "$new"' EXIT
-  echo "updatessh: checking this system derives keys correctly..."
+  echo "update_ssh: checking this system derives keys correctly..."
   printf '%s\n' 'updatessh known answer' | derive "$new" &&
     [ "$(pubkey "$new")" = "$DERIVE_CHECK" ] ||
     die "the known-answer check failed, so your key would come out wrong; refusing.
@@ -172,30 +172,30 @@ if [ -n "$derive" ]; then
   # Read from the terminal, not stdin: under 'curl ... | bash', stdin is the
   # script itself.
   { readpw 'Master password: ' pw && readpw '          Again: ' pw2; } </dev/tty >/dev/tty 2>/dev/null ||
-    die "no terminal to read the password from; run 'updatessh --derive' in a terminal"
+    die "no terminal to read the password from; run 'update_ssh --derive' in a terminal"
   [ "$pw" = "$pw2" ] || die "the passwords don't match"
   [ ${#pw} -ge 12 ] || die "use a longer password: anyone can try guesses against your public key offline"
-  echo "updatessh: deriving your key (a few seconds)..."
+  echo "update_ssh: deriving your key (a few seconds)..."
   printf '%s\n' "$pw" | derive "$new" || die "deriving the key failed"
   unset pw pw2
 
   pub=$(pubkey "$new")
   if [ -f "$KEY" ] && [ "$(pubkey "$KEY")" = "$pub" ]; then
-    echo "updatessh: $SHOW already is this key"
+    echo "update_ssh: $SHOW already is this key"
   else
     if [ -f "$KEY" ]; then
       [ -n "$force" ] ||
-        die "$SHOW is a different key; to replace it, run: updatessh --derive --force"
+        die "$SHOW is a different key; to replace it, run: update_ssh --derive --force"
       old=$SSH_DIR/id_ed25519.old-$(date +%Y%m%d-%H%M%S)
       mv "$KEY" "$old" && { [ ! -f "$KEY.pub" ] || mv "$KEY.pub" "$old.pub"; } || die "could not move the old key aside"
-      echo "updatessh: old key kept as ~${old#"$HOME"}"
+      echo "update_ssh: old key kept as ~${old#"$HOME"}"
     fi
     mv "$new" "$KEY" && echo "$pub $GH_USER (updatessh v1)" > "$KEY.pub" || die "could not write $SHOW"
-    echo "updatessh: wrote $SHOW and $SHOW.pub"
+    echo "update_ssh: wrote $SHOW and $SHOW.pub"
   fi
 fi
 
-[ -f "$KEY" ] || die "no key at $SHOW: copy your key pair into ~/.ssh, or run: updatessh --derive"
+[ -f "$KEY" ] || die "no key at $SHOW: copy your key pair into ~/.ssh, or run: update_ssh --derive"
 
 lock "$SSH_DIR" 700
 for f in "$SSH_DIR"/*; do
@@ -205,23 +205,23 @@ for f in "$SSH_DIR"/*; do
     *) lock "$f" 600 ;;  # private keys, config, authorized_keys
   esac
 done
-echo "updatessh: permissions set on $SSH_DIR"
+echo "update_ssh: permissions set on $SSH_DIR"
 
 # ssh -T exits 1 even on success (GitHub offers no shell), so check the text.
 out=$(ssh -T -o StrictHostKeyChecking=accept-new -o BatchMode=yes git@github.com 2>&1)
 case $out in
-  *"successfully authenticated"*) echo "updatessh: ${out%%!*}!" ;;
+  *"successfully authenticated"*) echo "update_ssh: ${out%%!*}!" ;;
   *)
     # A key GitHub lists but won't accept is a connection problem; one it
     # doesn't list is either the wrong key or a new one that needs adding.
     pub=$(pubkey "$KEY")
     if [ -n "$pub" ] && fetch "https://github.com/$GH_USER.keys" 2>/dev/null | grep -qF "$pub"; then
-      echo "updatessh: GitHub has this key but the connection failed: $out" >&2
+      echo "update_ssh: GitHub has this key but the connection failed: $out" >&2
     else
       cat >&2 <<EOF
-updatessh: GitHub doesn't accept $SHOW ($out). Either:
+update_ssh: GitHub doesn't accept $SHOW ($out). Either:
   - it's the wrong key. For a derived key, a mistyped password gives a
-    different key: run 'updatessh --derive --force' to try again.
+    different key: run 'update_ssh --derive --force' to try again.
   - it's a new key. Add this at https://github.com/settings/keys, once as an
     Authentication key and once as a Signing key (for signed commits):
     ${pub:-$(cat "$KEY.pub" 2>/dev/null)}
