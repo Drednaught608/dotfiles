@@ -3,29 +3,17 @@
 # (~/.config/windows-terminal), for each installed copy: the normal and Preview
 # versions and Scoop's portable ones. Any that aren't installed are skipped.
 #
-#   update_terminal          link each copy the way you chose (as --auto if not
-#                            yet); file links fall back to live while
-#                            Developer Mode is off
-#   update_terminal --auto   choose for me: file links if Developer Mode is on,
-#                            else live (-a)
-#   update_terminal --file   choose file links: link each copy's settings.json (-f)
-#   update_terminal --live   choose live: link each copy's whole settings folder (-l)
-#   update_terminal --choice show your choice and how each copy is linked (-c)
+#   update_terminal          link each copy's settings folder to the dotfiles one
 #   update_terminal --path   show each installed copy's settings folder (-p)
 #
-# Either way, Windows Terminal reads and saves the dotfiles settings.json. The
-# difference is when a running Windows Terminal notices a change: it watches its
-# own settings folder for one. With only the file linked, changes are saved
-# outside that folder, so it sees them, even ones made in its own Settings,
-# only once it fully restarts (every window closed; a newly opened window joins
-# the one already running). With the folder linked, it sees them at once, but
-# its own files (remembered windows and the like) then sit in
-# ~/.config/windows-terminal too, untracked, and the setup needs nothing else to
-# have that folder open. A file link needs Developer Mode (Settings > System >
-# For developers); the folder link is a directory junction, which needs no
-# administrator rights or Developer Mode. Your choice is saved for this machine
-# in ~/.local/share/dotfiles/terminal-link. A copy linked the other way is
-# switched over, and anything replaced is kept as <name>.bak-<date>.
+# Each copy's settings folder becomes a directory junction to
+# ~/.config/windows-terminal, which needs no administrator rights or Developer
+# Mode. Windows Terminal then reads and saves the dotfiles settings.json, and
+# since it watches that folder, it notices a change to it at once, whether
+# from its own Settings, a pull or an edit. Its own files (state.json:
+# remembered windows and the like) sit there too, untracked. Linking a copy
+# needs no program to have its settings folder open (an editor, Explorer,
+# Windows Terminal). The folder it replaces is kept as <name>.bak-<date>.
 #
 # It also installs the fonts kept in ~/.config/windows-terminal (*.ttf, *.otf)
 # for your user only, so no administrator rights are needed: copied into your
@@ -39,9 +27,9 @@ SHOW="~${DIR#"$HOME"}"  # the path as you'd type it, for messages
 STAMP=$(date +%Y%m%d-%H%M%S)
 
 if [ -t 1 ] && [ -z "${NO_COLOR-}" ]; then
-  B=$'\e[1m' D=$'\e[2m' G=$'\e[32m' Y=$'\e[33m' R=$'\e[31m' C=$'\e[36m' N=$'\e[0m'
+  B=$'\e[1m' D=$'\e[2m' G=$'\e[32m' Y=$'\e[33m' R=$'\e[31m' N=$'\e[0m'
 else
-  B= D= G= Y= R= C= N=
+  B= D= G= Y= R= N=
 fi
 if [ -t 2 ] && [ -z "${NO_COLOR-}" ]; then EY=$'\e[33m' ER=$'\e[31m' EN=$'\e[0m'; else EY= ER= EN=; fi
 
@@ -49,23 +37,17 @@ die() { echo "${ER}update_terminal: $*${EN}" >&2; exit 1; }
 warn() { echo "${EY}update_terminal: $*${EN}" >&2; }
 show() { echo "~${1#"$HOME"}"; }
 row() { printf '  %-34s %s\n' "$1" "$2"; }  # name, then what happened
-tag() { if [ "$1" = file ]; then printf '%s' "$B$G[file mode]$N"; else printf '%s' "$B$C[live mode]$N"; fi; }
-kind() { if [ "$1" = file ]; then printf '%-11s' "file link"; else printf '%-11s' "live"; fi; }
 
-mode=  # auto, file, live, choice, path, or empty to keep to the saved choice
-for a; do
-  case $a in
-    -a|--auto) want=auto ;;
-    -f|--file) want=file ;;
-    -l|--live) want=live ;;
-    -c|--choice) want=choice ;;
-    -p|--path) want=path ;;
-    -h|--help) sed -n '2,14s/^# \{0,1\}//p' "$0"; exit ;;
-    *) echo "update_terminal: unknown option '$a'" >&2; exit 2 ;;
-  esac
-  [ -z "$mode" ] || [ "$mode" = "$want" ] || die "use only one of --auto, --file, --live, --choice and --path"
-  mode=$want
-done
+case $# in
+  0) cmd=link ;;
+  1)
+    case $1 in
+      -p|--path) cmd=path ;;
+      -h|--help) sed -n '2,7s/^# \{0,1\}//p' "$0"; exit ;;
+      *) echo "update_terminal: unknown option '$1'; see: update_terminal --help" >&2; exit 2 ;;
+    esac ;;
+  *) echo "update_terminal: too many arguments; see: update_terminal --help" >&2; exit 2 ;;
+esac
 
 case $(uname -s) in
   MINGW*|MSYS*|CYGWIN*) ;;
@@ -80,47 +62,7 @@ FOLDERS=("$HOME/AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/L
 NAMES=("Windows Terminal" "Windows Terminal Preview"
        "Windows Terminal (Scoop)" "Windows Terminal Preview (Scoop)")
 
-# link_state <folder>: how it's linked now: file, live, none, or other (a link
-# to somewhere else).
-link_state() {
-  if [ -L "$1" ]; then
-    if [ "$1" -ef "$DIR" ]; then echo live; else echo other; fi
-  elif [ -L "$1/settings.json" ] && [ "$1/settings.json" -ef "$DIR/settings.json" ]; then
-    echo file
-  else
-    echo none
-  fi
-}
-
-# can_link_files: true if this account can make file links (Developer Mode on,
-# or running as administrator), found by making one in a temporary folder.
-can_link_files() {
-  local tmp ok
-  tmp=$(mktemp -d) || return
-  MSYS=winsymlinks:nativestrict ln -s "$DIR/settings.json" "$tmp/test" 2>/dev/null
-  ok=$?
-  rm -rf "$tmp"
-  return $ok
-}
-
-file_links=  # yes or no: whether file links can be made, checked once when first needed
-dev_mode() {
-  [ -n "$file_links" ] || { can_link_files && file_links=yes || file_links=no; }
-  [ "$file_links" = yes ]
-}
-
-# Your choice, file or live, saved for this machine only. --file and --live
-# save that one; --auto chooses for you, file if Developer Mode is on, else
-# live; a plain run keeps to the saved choice, or chooses as --auto if none.
-CHOICE=$HOME/.local/share/dotfiles/terminal-link
-saved=$(cat "$CHOICE" 2>/dev/null)
-case $saved in file|live) ;; *) saved= ;; esac
-
-# The way to link when Developer Mode decides it.
-auto_choice() { if dev_mode; then echo file; else echo live; fi; }
-dm_state() { if dev_mode; then echo on; else echo off; fi; }
-
-if [ "$mode" = path ]; then
+if [ "$cmd" = path ]; then
   found=
   for i in "${!FOLDERS[@]}"; do
     [ -d "${FOLDERS[i]%/*}" ] || continue
@@ -134,54 +76,8 @@ if [ "$mode" = path ]; then
   exit
 fi
 
-if [ "$mode" = choice ]; then
-  if [ -z "$saved" ]; then
-    echo "${B}[no choice yet]${N} update_terminal would choose $(tag "$(auto_choice)"): Developer Mode is $(dm_state)"
-  else
-    note=
-    [ "$saved" = live ] || dev_mode || note=", ${Y}but live for now: Developer Mode is off$N"
-    echo "$(tag "$saved") your saved choice$note"
-  fi
-  found=
-  for i in "${!FOLDERS[@]}"; do
-    [ -d "${FOLDERS[i]%/*}" ] || continue
-    found=1
-    case $(link_state "${FOLDERS[i]}") in
-      file) row "${NAMES[i]}" "file link" ;;
-      live) row "${NAMES[i]}" "live" ;;
-      other) row "${NAMES[i]}" "${R}linked somewhere else$N" ;;
-      none) row "${NAMES[i]}" "${Y}not linked$N" ;;
-    esac
-  done
-  [ -n "$found" ] || row "(no Windows Terminal installed)" ""
-  [ -z "$saved" ] || echo "${D}saved in $(show "$CHOICE")$N"
-  exit
-fi
-
-case $mode in
-  file|live) choice=$mode why="chosen with --$mode" ;;
-  auto) choice=$(auto_choice) why="chosen by --auto: Developer Mode is $(dm_state)" ;;
-  *)
-    if [ -n "$saved" ]; then
-      choice=$saved why="your saved choice"
-    else
-      choice=$(auto_choice) why="first choice, made as --auto: Developer Mode is $(dm_state)"
-    fi ;;
-esac
-if [ "$choice" != "$saved" ]; then
-  if mkdir -p "${CHOICE%/*}" && echo "$choice" > "$CHOICE"; then
-    why+=" ${D}(saved)$N"
-  else
-    warn "could not save your choice in $(show "$CHOICE")"
-  fi
-fi
-# A plain run with file links chosen, but none can be made: link the whole
-# folder for now. The choice stays file, so a later run switches back.
-fell_back=
-if [ "$choice" = file ] && [ "$mode" != file ] && ! dev_mode; then
-  fell_back=1 why+=", ${Y}but live for now: Developer Mode is off$N"
-fi
-echo "$(tag "$choice") $why"
+# Left by older versions of this, which could also link settings.json alone.
+rm -f "$HOME/.local/share/dotfiles/terminal-link"
 
 failed=
 
@@ -242,8 +138,8 @@ if [ -n "$fonts" ]; then
   # Sent encoded (UTF-16, base64), so no quote in the script is mangled on the way.
   while IFS=$'\t' read -r status name; do
     case $status in
-      already) row "$name" "$(printf '%-11s' font)${D}already installed$N" ;;
-      installed) row "$name" "$(printf '%-11s' font)${G}installed$N"; fonts_added=$((fonts_added + 1)) ;;
+      already) row "$name" "font ${D}already installed$N" ;;
+      installed) row "$name" "font ${G}installed$N"; fonts_added=$((fonts_added + 1)) ;;
       error) warn "could not install fonts: $name"; failed=1 ;;
     esac
   done < <(FONT_FILES=$fonts powershell.exe -NoProfile -NonInteractive -EncodedCommand \
@@ -258,34 +154,38 @@ make_junction() {
     >/dev/null 2>&1
 }
 
-busy() {
-  warn "could not move $1 aside: a program has it open. Close whatever is using it (an editor with a file from it open, an Explorer window showing it, Windows Terminal), then try again"
-}
-
-# Windows Terminal's own files, which live beside the settings while linked live.
+# Windows Terminal's own files, which it writes beside its settings.
 STATE_FILES="state.json elevated-state.json"
 
-# The link functions set, for the row that's printed after them:
-#   result  new, same, switched or failed
-#   kept    the old folder or settings moved aside, if any
-#   note    for a failure, how it was left
-
-# link_folder <folder>: live. The settings folder becomes a junction to $DIR.
+# link_folder <folder>: the settings folder becomes a junction to $DIR. Sets
+# result (same, new, from_file or failed) and kept (the old folder, if any).
 link_folder() {
   local folder=$1 where name
   where=$(show "$folder")
-  if [ "$before" = live ]; then result=same; return; fi
+  if [ -L "$folder" ]; then
+    if [ "$folder" -ef "$DIR" ]; then result=same; return; fi
+    warn "$label: $where is a link to somewhere else; leaving it alone"
+    result=failed
+    return
+  fi
+  result=new
+  # Linked by an older version of this, with only settings.json linked.
+  [ -L "$folder/settings.json" ] && [ "$folder/settings.json" -ef "$DIR/settings.json" ] && result=from_file
   # Move the current folder aside (kept, not deleted), then make the junction.
-  if [ -e "$folder" ] || [ -L "$folder" ]; then
+  if [ -e "$folder" ]; then
     kept=$folder.bak-$STAMP
-    mv "$folder" "$kept" 2>/dev/null || { busy "$where"; kept= result=failed; return; }
+    if ! mv "$folder" "$kept" 2>/dev/null; then
+      warn "$label: could not move $where aside: a program has it open. Close whatever is using it (an editor with a file from it open, an Explorer window showing it, Windows Terminal), then try again"
+      kept= result=failed
+      return
+    fi
   fi
   if make_junction "$folder" "$DIR"; then
-    # Keep what Windows Terminal remembers (window layouts, dismissed messages).
+    # Keep what Windows Terminal remembers (window layouts, dismissed messages),
+    # unless the dotfiles folder already has its own.
     for name in $STATE_FILES; do
       if [ -n "$kept" ] && [ -f "$kept/$name" ] && [ ! -e "$DIR/$name" ]; then cp -p "$kept/$name" "$DIR/$name"; fi
     done
-    if [ "$before" = file ]; then result=switched; else result=new; fi
   else
     warn "$label: could not make a junction at $where"
     [ -z "$kept" ] || mv "$kept" "$folder"  # put it back
@@ -293,74 +193,27 @@ link_folder() {
   fi
 }
 
-# link_file <folder>: the folder's settings.json becomes a file link to
-# $DIR/settings.json.
-link_file() {
-  local folder=$1 where file name
-  where=$(show "$folder")
-  file=$folder/settings.json
-  if [ "$before" = file ]; then result=same; return; fi
-  if [ "$before" = other ]; then
-    warn "$label: $where is a link to somewhere else; leaving it alone"
-    result=failed
-    return
-  fi
-  # Switching from live: make the folder a real one again, with Windows
-  # Terminal's own files moved back out of the dotfiles folder.
-  if [ "$before" = live ]; then
-    rm "$folder" 2>/dev/null && mkdir -p "$folder" || { busy "$where"; result=failed; return; }
-    for name in $STATE_FILES; do
-      [ ! -e "$DIR/$name" ] || mv "$DIR/$name" "$folder/$name"
-    done
-  fi
-  # Make the link first, and only then move the old settings aside.
-  if MSYS=winsymlinks:nativestrict ln -s "$DIR/settings.json" "$file.new" 2>/dev/null; then
-    if [ -e "$file" ] || [ -L "$file" ]; then
-      kept=$file.bak-$STAMP
-      mv "$file" "$kept"
-    fi
-    mv "$file.new" "$file"
-    if [ "$before" = live ]; then result=switched; else result=new; fi
-  else
-    warn "$label: no file link made: that needs Developer Mode (Settings > System > For developers); or use: update_terminal --live"
-    if [ "$before" = live ]; then  # go back to how it was
-      for name in $STATE_FILES; do
-        [ ! -e "$folder/$name" ] || mv "$folder/$name" "$DIR/$name"
-      done
-      rmdir "$folder" && make_junction "$folder" "$DIR" && note="left live, as it was"
-    fi
-    result=failed
-  fi
-}
-
-found= n_new=0 n_same=0 n_to_live=0 n_to_file=0 n_failed=0
+found= n_new=0 n_from_file=0 n_failed=0
 for i in "${!FOLDERS[@]}"; do
   folder=${FOLDERS[i]}
   [ -d "${folder%/*}" ] || continue  # that Windows Terminal isn't installed
   found=1
-  if [ "$choice" = live ] || [ -n "$fell_back" ]; then how=live; else how=file; fi
-  before=$(link_state "$folder") result= kept= note= label=${NAMES[i]}
-  if [ "$how" = live ]; then link_folder "$folder"; else link_file "$folder"; fi
+  label=${NAMES[i]} result= kept=
+  link_folder "$folder"
   case $result in
-    same) row "${NAMES[i]}" "$(kind "$how")${D}unchanged$N"; n_same=$((n_same + 1)) ;;
-    new) row "${NAMES[i]}" "$(kind "$how")${G}linked$N"; n_new=$((n_new + 1)) ;;
-    switched)
-      row "${NAMES[i]}" "$(kind "$how")${Y}switched from $([ "$how" = live ] && echo "file link" || echo live)$N"
-      if [ "$how" = live ]; then n_to_live=$((n_to_live + 1)); else n_to_file=$((n_to_file + 1)); fi ;;
-    failed) row "${NAMES[i]}" "${R}not linked${note:+ ($note)}$N"; n_failed=$((n_failed + 1)) ;;
+    same) row "$label" "${D}already linked$N" ;;
+    new) row "$label" "${G}linked$N"; n_new=$((n_new + 1)) ;;
+    from_file) row "$label" "${Y}linked, replacing its settings.json link$N"; n_from_file=$((n_from_file + 1)) ;;
+    failed) row "$label" "${R}not linked$N"; n_failed=$((n_failed + 1)) ;;
   esac
-  if [ -n "$kept" ]; then
-    if [ -d "$kept" ]; then what="old folder"; else what="old settings.json"; fi
-    echo "    ${D}$what kept beside it as ${kept##*/}$N"
-  fi
+  [ -z "$kept" ] || echo "    ${D}old folder kept beside it as ${kept##*/}$N"
 done
 [ -n "$found" ] || die "no Windows Terminal install found"
 
 # Summary.
 parts=()
-[ "$n_new" = 0 ] || parts+=("$n_new newly linked ($( [ "$how" = live ] && echo live || echo file))")
-[ "$n_to_live" = 0 ] || parts+=("$n_to_live switched file -> live")
-[ "$n_to_file" = 0 ] || parts+=("$n_to_file switched live -> file")
+[ "$n_new" = 0 ] || parts+=("$n_new newly linked")
+[ "$n_from_file" = 0 ] || parts+=("$n_from_file switched from a settings.json link")
 [ "$fonts_added" = 0 ] || parts+=("$fonts_added font$([ "$fonts_added" = 1 ] || echo s) installed")
 [ "$n_failed" = 0 ] || parts+=("${R}$n_failed not linked$N")
 if [ ${#parts[@]} = 0 ]; then
@@ -369,9 +222,7 @@ else
   summary=$(printf '%s, ' "${parts[@]}")
   echo "${B}Summary:${N} ${summary%, }"
 fi
-[ -z "$fell_back" ] ||
-  echo "${Y}Turn on Developer Mode (Settings > System > For developers), then run update_terminal to go back to file links.$N"
-[ $((n_new + n_to_live + n_to_file)) = 0 ] ||
+[ $((n_new + n_from_file)) = 0 ] ||
   echo "Close every Windows Terminal window (opening another isn't enough), then reopen it to load these settings."
 [ -z "$failed" ] && [ "$n_failed" = 0 ] ||
-  die "fix what's described above, then run: update_terminal${mode:+ --$mode}"
+  die "fix what's described above, then run: update_terminal"
