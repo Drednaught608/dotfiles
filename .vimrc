@@ -147,6 +147,14 @@
     noremap <C-l> <C-w>l
     tnoremap <C-j> <C-w>j
     tnoremap <C-k> <C-w>k
+    tnoremap <silent> <PageDown> <C-w>:ClearBufs<Bar>silent bnext<CR>
+    tnoremap <silent> <PageUp> <C-w>:ClearBufs<Bar>silent bprevious<CR>
+    tnoremap <silent> <End> <C-w>:ClearBufs<Bar>silent bprevious<CR>
+    tnoremap <silent> <S-right> <C-w>:ClearBufs<Bar>silent bnext<CR>
+    tnoremap <silent> <S-left> <C-w>:ClearBufs<Bar>silent bprevious<CR>
+    tnoremap <silent> <C-right> <C-w>:silent tabnext<CR>
+    tnoremap <silent> <C-left> <C-w>:silent tabprevious<CR>
+    tnoremap <C-n> <C-w>N
     tnoremap <esc> <C-w>N
     nnoremap <C-down> :m .+1<CR>==
     nnoremap <C-up> :m .-2<CR>==
@@ -176,7 +184,7 @@
         autocmd Bufleave * if expand('%') == "" | let g:n_emp_buf = bufnr('%') | endif
     augroup end
     let g:n_emp_buf = 0
-    command! ClearBufs if getbufvar(g:n_emp_buf, '&buftype') !=# 'nofile' | silent! execute 'bd' g:n_emp_buf | endif
+    command! -bar ClearBufs if getbufvar(g:n_emp_buf, '&buftype') !=# 'nofile' | silent! execute 'bd' g:n_emp_buf | endif
 
     " Set syntax for custom file formats
     au BufReadPost .bash_* set syntax=bash
