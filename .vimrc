@@ -145,11 +145,8 @@
     noremap <C-j> <C-w>j
     noremap <C-k> <C-w>k
     noremap <C-l> <C-w>l
-    tnoremap <C-h> <C-w>h
     tnoremap <C-j> <C-w>j
     tnoremap <C-k> <C-w>k
-    tnoremap <C-l> <C-w>l
-    tnoremap <C-n> <C-w>N
     tnoremap <esc> <C-w>N
     nnoremap <C-down> :m .+1<CR>==
     nnoremap <C-up> :m .-2<CR>==
@@ -187,6 +184,10 @@
     " Git commit detection for easy save or quitting
     augroup GitCommitKeys
         autocmd!
+        " No swap file for commit messages, so a force quit leaves nothing to warn about, and
+        " one left from before is deleted quietly (its check comes before the file type is known)
+        autocmd FileType gitcommit setlocal noswapfile
+        autocmd SwapExists COMMIT_EDITMSG,MERGE_MSG,SQUASH_MSG,TAG_EDITMSG let v:swapchoice = 'd'
         autocmd FileType gitcommit startinsert
         autocmd FileType gitcommit let b:coc_enabled = 0
         autocmd FileType gitcommit setlocal spell spelllang=en_us
@@ -265,7 +266,7 @@
 
 "}}}
 
-" GVim settings {{{
+" gVim settings {{{
     if has("gui_running")
         set gcr=n-v-c:block-Cursor
             \/lCursor-blinkwait500-blinkon500-blinkoff500,ve:ver35-Cursor,o:hor50-Cursor,i-ci:ver25-Cursor
@@ -274,6 +275,9 @@
         highlight Cursor guifg=#222222 guibg=#ffffff
         if has('win64') || has('win32') || has('win16')
             set guifont=JetBrains\ Mono\ NL:h13:cANSI:qDRAFT
+            " Its terminal runs through Windows' ConPTY, which turns Ctrl+H into Backspace,
+            " so send the escape code ~/.inputrc binds instead
+            tnoremap <C-h> <Esc>[104;5u
         elseif has('macunix')
             set guifont=JetBrainsMonoNL-Regular:h13
         else

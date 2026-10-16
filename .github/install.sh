@@ -5,12 +5,16 @@
 #   1. fetch dgit from this repo into ~/.local/scripts
 #   2. dgit clone the dotfiles over HTTPS (public repo, so no key needed),
 #      then hard-reset $HOME to origin/main
-#   3. point origin at SSH, then run update_ssh to fix ~/.ssh permissions and
-#      check the key authenticates to GitHub. With no ~/.ssh/id_ed25519, it
-#      first derives the key from your master password (update_ssh --derive).
+#   3. point origin at SSH, then run update_setup: update_ssh fixes ~/.ssh
+#      permissions and checks the key authenticates to GitHub (with no
+#      ~/.ssh/id_ed25519, it first derives the key from your master password),
+#      and update_terminal installs the fonts and, on Windows, links Windows
+#      Terminal's settings
 #
 # Files the reset overwrites, and any previous dgit repo, are moved into
-# ~/.local/share/dotfiles first.
+# ~/.local/share/dotfiles first. This is for a new machine: on one already set
+# up, it would reset your dotfiles to the last push. To redo just the setup in
+# step 3, run update_setup instead.
 #
 #   curl -fsSL https://raw.githubusercontent.com/Drednaught608/dotfiles/main/.github/install.sh | bash
 
@@ -19,7 +23,6 @@ set -euo pipefail
 HTTPS_URL=https://github.com/Drednaught608/dotfiles.git
 SSH_URL=git@github.com:Drednaught608/dotfiles.git
 RAW=https://raw.githubusercontent.com/Drednaught608/dotfiles/main
-KEY=$HOME/.ssh/id_ed25519
 DGIT=$HOME/.local/scripts/dgit
 DATA=${XDG_DATA_HOME:-$HOME/.local/share}
 DGIT_DIR=${DGIT_DIR:-$DATA/dgit}
@@ -72,23 +75,12 @@ say "Resetting to origin/main"
 # URLs to SSH anyway; this makes it explicit).
 "$DGIT" remote set-url origin "$SSH_URL"
 
-if [ -f "$KEY" ]; then
-  say "Using your SSH key at $KEY"
-  "$HOME/.local/scripts/update_ssh" || warn "the SSH check failed; fix it, then run: update_ssh"
-else
-  say "No SSH key at $KEY; deriving it from your master password"
-  "$HOME/.local/scripts/update_ssh" --derive ||
-    warn "the SSH key isn't set up yet, so pulling and pushing the dotfiles won't work.
-  Fix what's described above, then run: update_ssh --derive
-  (or copy your key pair into ~/.ssh and run: update_ssh)"
-fi
-
-# On Windows, point Windows Terminal at the dotfiles settings.
-case $(uname -s) in
-  MINGW*|MSYS*|CYGWIN*)
-    say "Linking Windows Terminal's settings to the dotfiles"
-    "$HOME/.local/scripts/update_terminal" ||
-      warn "Windows Terminal isn't using the dotfiles settings yet; fix what's described above, then run: update_terminal" ;;
-esac
+# The setup that follows (SSH key, fonts, Windows Terminal) is update_setup's, so
+# it can be redone any time without all this. Each step says what to fix itself.
+# Its input is empty: run as "curl ... | bash", the rest of this script is still
+# waiting there, and a program reading it (ssh does) would swallow it. The master
+# password, if it's asked for, is read from the terminal, not from there.
+"$HOME/.local/scripts/update_setup" < /dev/null ||
+  warn "some of the setup didn't finish; fix what's described above, then run: update_setup"
 
 say "Done. Open a new shell (or run: source ~/.bashrc) to pick up the dotfiles."

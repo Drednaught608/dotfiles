@@ -10,4 +10,7 @@ $if Bash
 "\C-t": "\C-e\C-u git_tracked\C-m"
 "\C-_": "\C-e\C-u git_branches\C-m"
 "\C-]": "\C-e\C-u git_commit\C-m"
+# gVim's terminal sends these escape codes for Ctrl+H (via ~/.vimrc) and Ctrl+/
+"\e[104;5u": "\C-e\C-u git_log\C-m"
+"\e[47;5u": "\C-e\C-u git_branches\C-m"
 $endif

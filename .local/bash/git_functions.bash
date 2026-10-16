@@ -28,8 +28,8 @@ git_status() { # Shows untracked files as unstaged additions (" A") instead of "
 git_branches() {
     git branch -avv --color=always | grep -v -- ' -> '
 }
-git_log() {
-    git log --oneline -n 11 --graph
+git_log() { # git_log [count]: the last count commits, 11 by default
+    git --no-pager log --oneline -n "${1:-11}" --graph
 }
 git_diff() {
     git --no-pager diff HEAD
@@ -49,7 +49,7 @@ git_sync() { # Pushes when you have unpushed commits, otherwise pulls
     fi
 }
 
-git_tracked() { # Toggles staging between "every change to tracked files, nothing else" and empty
+git_tracked() { # Toggles staging between "every change to tracked files" and empty; new files you added stay staged
     local status branch gitdir
     # One call: "# branch.head <name>", then a line per change: "1 XY ..." / "2 XY ..."
     # (X staged, Y unstaged, "." neither), "u ..." conflict, "? path" untracked
@@ -66,21 +66,16 @@ git_tracked() { # Toggles staging between "every change to tracked files, nothin
         echo "$branch Conflicts to resolve first; staging left alone."
         return 1
     fi
-    if [[ $status == *$'\n'[12]' '[!.]* ]]; then # Something is staged, so a reset is coming
+    if [[ $status == *$'\n'[12]' '?[!.]' '* ]]; then # Tracked changes not staged yet: stage them, keeping the rest
+        git add --update && echo "$branch Staged all tracked files."
+    elif [[ $status == *$'\n'[12]' '[!.]* ]]; then # Everything is staged already: unstage it all, new files too
         # "git reset" also forgets a merge, cherry-pick or revert in progress; never do that from a toggle
         gitdir=$(git rev-parse --git-dir) || return
         if [ -e "$gitdir/MERGE_HEAD" ] || [ -e "$gitdir/CHERRY_PICK_HEAD" ] || [ -e "$gitdir/REVERT_HEAD" ]; then
             echo "$branch A merge, cherry-pick or revert is in progress; staging left alone."
             return 1
         fi
-        git reset --quiet || return
-        if [[ $status != *$'\n'[12]' '?[!.]' '* ]]; then # Every tracked change was staged: leave it empty
-            echo "$branch Unstaged all files."
-            return
-        fi
-    fi
-    if [[ $status == *$'\n'[12]' '?[!.]' '* ]]; then # Tracked changes that are not staged
-        git add --update && echo "$branch Staged all tracked files."
+        git reset --quiet && echo "$branch Unstaged all files."
     elif [[ $status == *$'\n'[12?]' '* ]]; then # Only untracked files
         echo "$branch No changes to tracked files."
     else
@@ -130,7 +125,10 @@ git_commit_key() { # Waits for one of git_commit's prompt keys and sets REPLY to
 }
 
 git_commit() { # Commits what you staged, or everything if nothing is staged, offering to leave out secrets and junk
+    # git_commit [message]: with a message, commits with it instead of opening the editor
     local record path key kind i color status old_trap tty_state skip= any= staged= conflict= without= tree=
+    local message=()
+    (( $# )) && message=(-m "$1")
     local last_new= last_added= red= yellow= off= both= keep=
     local new=() new_kinds=() added=() added_kinds=() added_paths=() added_path_kinds=()
     local found=() kinds=() excludes=() remove=()
@@ -155,7 +153,7 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
         esac
     done < <(git status --porcelain=v2 -z --untracked-files=all 2> /dev/null)
     # Nothing to do, a conflict, or not a repo: Git says so itself
-    if [ -z "$any" ] || [ -n "$conflict" ]; then git commit; return; fi
+    if [ -z "$any" ] || [ -n "$conflict" ]; then git commit "${message[@]}"; return; fi
 
     if [ -n "$staged" ]; then
         found=("${added[@]}"); kinds=("${added_kinds[@]}")
@@ -214,7 +212,7 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
             tree=$(git write-tree) &&
                 printf ':(top,literal)%s\0' "${remove[@]}" |
                 git rm --cached --force --quiet --pathspec-from-file=- --pathspec-file-nul
-        fi && git commit
+        fi && git commit "${message[@]}"
         status=$?
         if (( status )) && [ -n "$tree" ]; then
             git read-tree "$tree" # Back to exactly what you had staged
@@ -227,7 +225,7 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
             git add --all -- ':/' "${excludes[@]}"
         else
             git add --all
-        fi && git commit
+        fi && git commit "${message[@]}"
         status=$?
         if (( status )); then
             git reset --quiet # Back to nothing staged, as it was
@@ -236,3 +234,12 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
     eval "${old_trap:-trap - INT}" # Ctrl+C behaves as it did before
     return $status
 }
+
+# In Vim's terminal (Vim sets VIM_TERMINAL), Ctrl+H shows a shorter log, and Ctrl+] types
+# git_commit "" with the cursor between the quotes, as Git's editor misbehaves inside Vim.
+# They replace those keys from ~/.inputrc. gVim sends Ctrl+H as an escape code, so that too.
+if [[ -n "$VIM_TERMINAL" && $- == *i* ]]; then
+    bind '"\C-]": "\C-e\C-u git_commit \"\"\C-b"'
+    bind '"\C-h": "\C-e\C-u git_log 6\C-m"'
+    bind '"\e[104;5u": "\C-e\C-u git_log 6\C-m"'
+fi

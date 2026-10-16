@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# update_setup - redo the setup that follows installing the dotfiles: what
+# install.sh does once they're in place. Safe to run any time; unlike
+# install.sh, it never touches the dotfiles repo or your files in it.
+#
+#   update_setup   check the SSH key (deriving it if there's none), then install
+#                  the fonts and, on Windows, link Windows Terminal's settings
+#
+# Each step is its own script, run here in turn: update_ssh, then
+# update_terminal. To redo just one, run that script instead.
+
+SCRIPTS=$HOME/.local/scripts
+KEY=$HOME/.ssh/id_ed25519
+
+say() { printf '\033[1;36m==>\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33mwarning:\033[0m %s\n' "$*" >&2; }
+
+case $# in
+  0) ;;
+  *)
+    case $1 in
+      -h|--help) sed -n '2,10s/^# \{0,1\}//p' "$0"; exit ;;
+      *) echo "update_setup: unknown option '$1'; see: update_setup --help" >&2; exit 2 ;;
+    esac ;;
+esac
+
+status=0
+
+if [ -f "$KEY" ]; then
+  say "Using your SSH key at $KEY"
+  "$SCRIPTS/update_ssh" || { warn "the SSH check failed; fix it, then run: update_ssh"; status=1; }
+else
+  say "No SSH key at $KEY; deriving it from your master password"
+  "$SCRIPTS/update_ssh" --derive || {
+    warn "the SSH key isn't set up yet, so pulling and pushing the dotfiles won't work.
+  Fix what's described above, then run: update_ssh --derive
+  (or copy your key pair into ~/.ssh and run: update_ssh)"
+    status=1
+  }
+fi
+
+# Install the dotfiles fonts (for gVim, and Windows Terminal), and on Windows point
+# Windows Terminal at the dotfiles settings.
+case $(uname -s) in
+  MINGW*|MSYS*|CYGWIN*)
+    say "Linking Windows Terminal's settings to the dotfiles"
+    "$SCRIPTS/update_terminal" || {
+      warn "Windows Terminal isn't using the dotfiles settings yet; fix what's described above, then run: update_terminal"
+      status=1
+    } ;;
+  *)
+    say "Installing the dotfiles fonts"
+    "$SCRIPTS/update_terminal" || {
+      warn "the fonts aren't installed yet; fix what's described above, then run: update_terminal"
+      status=1
+    } ;;
+esac
+
+exit $status

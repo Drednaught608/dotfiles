@@ -23,10 +23,17 @@ The [install script](install.sh):
 1. Downloads `dgit` to `~/.local/scripts/dgit`.
 2. Runs `dgit clone https://github.com/Drednaught608/dotfiles.git`, then `dgit reset --hard origin/main` so `$HOME` matches the repo exactly.
 3. Switches `origin` to `git@github.com:Drednaught608/dotfiles.git` for pushing.
-4. Runs `update_ssh` (below) on your existing `~/.ssh/id_ed25519`, or, if there isn't one, `update_ssh --derive` to create it from your master password.
-5. On Windows, runs `update_terminal` (below) so Windows Terminal uses the dotfiles settings.
+4. Runs `update_setup`, which does the setup that follows:
+   - `update_ssh` (below) on your existing `~/.ssh/id_ed25519`, or, if there isn't one, `update_ssh --derive` to create it from your master password.
+   - `update_terminal` (below), which installs the dotfiles fonts and, on Windows, makes Windows Terminal use the dotfiles settings.
 
 Before the reset, any existing file that would be overwritten is copied to `~/.local/share/dotfiles/backup-<timestamp>/`, and an existing dgit repo is moved there too, not deleted.
+
+The install script is for a new machine: on one already set up, it would reset your dotfiles to the last push. To redo just the setup in step 4, for example after changing the fonts, run:
+
+```bash
+update_setup
+```
 
 ## SSH key
 
@@ -44,7 +51,7 @@ The key's 32-byte Ed25519 seed is PBKDF2-HMAC-SHA512 of the password, with 3,000
 
 ## Windows Terminal
 
-Windows Terminal's settings live in [`~/.config/windows-terminal/settings.json`](../.config/windows-terminal/settings.json), next to the files they use: the Bash profile's background image (`japan.jpg`) and icon (`bash.png`), and the JetBrains Mono NL font (see [CREDITS.md](../.config/windows-terminal/CREDITS.md) for their sources and licences). The settings refer to the images as `%USERPROFILE%\.config\windows-terminal\...`, which works on any machine. To make Windows Terminal use all of this, run:
+Windows Terminal's settings live in [`~/.config/windows-terminal/settings.json`](../.config/windows-terminal/settings.json), next to the images they use: the Bash profile's background image (`japan.jpg`) and icon (`bash.png`) (see [CREDITS.md](../.config/windows-terminal/CREDITS.md) for their sources and licences). The settings refer to the images as `%USERPROFILE%\.config\windows-terminal\...`, which works on any machine. Its font, JetBrains Mono NL, is kept with its licence in [`~/.config/fonts`](../.config/fonts) (see its [CREDITS.md](../.config/fonts/CREDITS.md)), since gVim uses it too; the settings name it, `JetBrains Mono NL`, rather than giving a path. To make Windows Terminal use all of this, run:
 
 ```bash
 update_terminal          # link each install's settings folder to the dotfiles one
@@ -55,7 +62,7 @@ It covers each installed Windows Terminal (the normal and Preview versions, and 
 
 Close every Windows Terminal window and open it again after linking; opening another window isn't enough, because it joins the one already running. No program may have its settings folder open while it's linked (an editor, an Explorer window, Windows Terminal). The folder it replaces is kept as `<name>.bak-<timestamp>`. Run it again if a reinstall resets Windows Terminal's settings folder.
 
-It also installs the fonts in that folder (`*.ttf`, `*.otf`) for your user only, which needs no administrator rights: each is copied into your own fonts folder and registered under `HKCU`, the way Windows does when you choose "Install", and fonts already installed are left alone. To use another font, put its file in the folder, run `update_terminal`, and set it in the settings.
+It also installs the fonts in `~/.config/fonts` (`*.ttf`, `*.otf`) for your user only, which needs no administrator rights, so gVim can use them too. On Windows each is copied into your own fonts folder and registered under `HKCU`, the way Windows does when you choose "Install". On Linux they go in `~/.local/share/fonts` and fontconfig's cache is refreshed; on macOS they go in `~/Library/Fonts`. There, with no Windows Terminal, installing the fonts is all `update_terminal` does. Fonts already installed are left alone. To use another font, put its file in the folder, run `update_terminal`, and set it in the settings.
 
 ## Usage
 

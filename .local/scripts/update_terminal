@@ -2,6 +2,7 @@
 # update_terminal - make Windows Terminal use the settings in your dotfiles
 # (~/.config/windows-terminal), for each installed copy: the normal and Preview
 # versions and Scoop's portable ones. Any that aren't installed are skipped.
+# On Linux and macOS, where there's no Windows Terminal, it only installs the fonts.
 #
 #   update_terminal          link each copy's settings folder to the dotfiles one
 #   update_terminal --path   show each installed copy's settings folder (-p)
@@ -15,15 +16,18 @@
 # needs no program to have its settings folder open (an editor, Explorer,
 # Windows Terminal). The folder it replaces is kept as <name>.bak-<date>.
 #
-# It also installs the fonts kept in ~/.config/windows-terminal (*.ttf, *.otf)
-# for your user only, so no administrator rights are needed: copied into your
-# own fonts folder and registered under HKCU, the same way Windows does when
-# you choose "Install". Fonts that are already installed are left alone.
+# It also installs the fonts kept in ~/.config/fonts (*.ttf, *.otf)
+# for your user only, so no administrator rights are needed, and gVim can use
+# them too. On Windows they're copied into your own fonts folder and registered
+# under HKCU, the same way Windows does when you choose "Install". On Linux they
+# go in ~/.local/share/fonts, and fontconfig's cache is refreshed; on macOS in
+# ~/Library/Fonts. Fonts that are already installed are left alone.
 #
 # Colours are used when the output is a terminal; NO_COLOR=1 turns them off.
 
 DIR=$HOME/.config/windows-terminal
 SHOW="~${DIR#"$HOME"}"  # the path as you'd type it, for messages
+FONTS=$HOME/.config/fonts
 STAMP=$(date +%Y%m%d-%H%M%S)
 
 if [ -t 1 ] && [ -z "${NO_COLOR-}" ]; then
@@ -43,17 +47,22 @@ case $# in
   1)
     case $1 in
       -p|--path) cmd=path ;;
-      -h|--help) sed -n '2,7s/^# \{0,1\}//p' "$0"; exit ;;
+      -h|--help) sed -n '2,8s/^# \{0,1\}//p' "$0"; exit ;;
       *) echo "update_terminal: unknown option '$1'; see: update_terminal --help" >&2; exit 2 ;;
     esac ;;
   *) echo "update_terminal: too many arguments; see: update_terminal --help" >&2; exit 2 ;;
 esac
 
 case $(uname -s) in
-  MINGW*|MSYS*|CYGWIN*) ;;
-  *) die "Windows Terminal is Windows-only; nothing to do here" ;;
+  MINGW*|MSYS*|CYGWIN*) os=windows ;;
+  Darwin) os=mac ;;
+  *) os=linux ;;
 esac
-[ -f "$DIR/settings.json" ] || die "no $SHOW/settings.json to link to"
+if [ "$os" = windows ]; then
+  [ -f "$DIR/settings.json" ] || die "no $SHOW/settings.json to link to"
+elif [ "$cmd" = path ]; then
+  die "Windows Terminal is Windows-only; here update_terminal only installs the fonts"
+fi
 
 FOLDERS=("$HOME/AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState"
          "$HOME/AppData/Local/Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState"
@@ -129,21 +138,61 @@ try {
     exit 1
 }
 EOF
-fonts=
-for f in "$DIR"/*.ttf "$DIR"/*.otf; do
-  [ -f "$f" ] && fonts+=$(cygpath -w "$f")$'\n'
+# install_fonts_unix: the same for Linux and macOS, which use fonts from a folder
+# of your own: each is copied there, then on Linux fontconfig's cache is
+# refreshed so programs see it at once. Prints the same lines as the Windows one.
+install_fonts_unix() {
+  local f file shown family= style= dest added=0
+  if [ "$os" = mac ]; then dest=$HOME/Library/Fonts; else dest=${XDG_DATA_HOME:-$HOME/.local/share}/fonts; fi
+  for f in "${font_files[@]}"; do
+    file=${f##*/}
+    shown=${file%.*}
+    if command -v fc-scan >/dev/null; then  # its family and style names, as the Windows one shows them
+      family=$(fc-scan --format '%{family[0]}' "$f" 2>/dev/null)
+      style=$(fc-scan --format '%{style[0]}' "$f" 2>/dev/null)
+      [ -z "$family" ] || shown="$family${style:+ $style}"
+    fi
+    # Already installed, for you or for everyone?
+    if [ -f "$dest/$file" ] || { [ "$os" = mac ] && [ -f "/Library/Fonts/$file" ]; } ||
+       { [ -n "$family" ] && command -v fc-list >/dev/null && [ -n "$(fc-list "$family:style=$style" file 2>/dev/null)" ]; }; then
+      printf 'already\t%s\n' "$shown"
+      continue
+    fi
+    if mkdir -p "$dest" && cp "$f" "$dest/$file"; then
+      printf 'installed\t%s\n' "$shown"
+      added=$((added + 1))
+    else
+      printf 'error\tcould not copy %s into %s\n' "$file" "$(show "$dest")"
+      return 1
+    fi
+  done
+  if [ "$added" != 0 ] && [ "$os" = linux ] && command -v fc-cache >/dev/null; then
+    fc-cache -f "$dest" >/dev/null 2>&1
+  fi
+}
+
+font_files=()
+for f in "$FONTS"/*.ttf "$FONTS"/*.otf; do
+  [ -f "$f" ] && font_files+=("$f")
 done
 fonts_added=0
-if [ -n "$fonts" ]; then
-  # Sent encoded (UTF-16, base64), so no quote in the script is mangled on the way.
+if [ ${#font_files[@]} != 0 ]; then
   while IFS=$'\t' read -r status name; do
     case $status in
       already) row "$name" "font ${D}already installed$N" ;;
       installed) row "$name" "font ${G}installed$N"; fonts_added=$((fonts_added + 1)) ;;
       error) warn "could not install fonts: $name"; failed=1 ;;
     esac
-  done < <(FONT_FILES=$fonts powershell.exe -NoProfile -NonInteractive -EncodedCommand \
-             "$(printf '%s' "$install_fonts" | iconv -f UTF-8 -t UTF-16LE | base64 -w 0)" 2>/dev/null | tr -d '\r')
+  done < <(
+    if [ "$os" = windows ]; then
+      fonts=
+      for f in "${font_files[@]}"; do fonts+=$(cygpath -w "$f")$'\n'; done
+      # Sent encoded (UTF-16, base64), so no quote in the script is mangled on the way.
+      FONT_FILES=$fonts powershell.exe -NoProfile -NonInteractive -EncodedCommand \
+        "$(printf '%s' "$install_fonts" | iconv -f UTF-8 -t UTF-16LE | base64 -w 0)" 2>/dev/null | tr -d '\r'
+    else
+      install_fonts_unix
+    fi)
 fi
 
 # make_junction <link> <target>: PowerShell makes it; the paths go in through
@@ -194,6 +243,7 @@ link_folder() {
 }
 
 found= n_new=0 n_from_file=0 n_failed=0
+[ "$os" = windows ] || FOLDERS=() found=1  # no Windows Terminal to link here, only the fonts
 for i in "${!FOLDERS[@]}"; do
   folder=${FOLDERS[i]}
   [ -d "${folder%/*}" ] || continue  # that Windows Terminal isn't installed
