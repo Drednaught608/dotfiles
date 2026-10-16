@@ -5,6 +5,7 @@
 #   dgit clone <url>     clone dotfiles and check them out into $HOME
 #   dgit add <path>...   start tracking files (everything else is ignored)
 #   dgit <git args...>   any other git command, run against $HOME
+#                        (a shell alias, "!...", runs without the repo instead)
 #   dgit test            run dgit's test suite
 #
 # The repo lives in $DGIT_DIR (default: ~/.local/share/dgit). Paths may be
@@ -118,7 +119,11 @@ case $cmd in
   *)
     a=$(g config --get "alias.$cmd") && {
       a=${a#"${a%%[![:space:]]*}"}
-      case $a in '!'*) die "alias '$cmd' runs a shell command, which dgit can't check; dgit doesn't run shell aliases" ;; esac
+      # A shell alias can run anything, so it never runs against $HOME through the
+      # dotfiles repo: it runs as plain git, pointed at a repo that doesn't exist, so a
+      # git command in it stops at "not a git repository". One that only reads settings
+      # (listing your aliases, say) works as usual.
+      case $a in '!'*) cd "$HOME" && GIT_DIR=$DGIT_DIR/none-for-shell-aliases exec git "$@" ;; esac
       adef=$a a=${a%%[[:space:]]*}
       # An add alias runs unforced, so it can only stage tracked changes.
       case $a in

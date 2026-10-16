@@ -12,6 +12,7 @@ git config --global init.defaultBranch main
 git config --global help.format man  # so "--help" tests never open a web browser
 git config --global alias.up pull; git config --global alias.aa 'add -A'
 git config --global alias.sh '!echo hi'; git config --global alias.untrack 'rm --cached'
+git config --global alias.shstat '!git status'; git config --global alias.shlist '!git config --get-regexp ^alias\.'
 echo '*.secret' > "$T/global-ignore"; git config --global core.excludesFile "$T/global-ignore"
 
 pass=0 fail=0
@@ -271,7 +272,12 @@ ok "path starting with - after --" 'dg add -- -dash >/dev/null && dg ls-files | 
 section "Option guards, aliases and wrappers"
 ok "refused: -C elsewhere" '! dg -C "$T" status >/dev/null'
 ok "refused: --git-dir override" '! dg --git-dir="$T/r.git" log >/dev/null'
-ok "refused: shell alias" '! dg sh >/dev/null'
+ok "shell alias runs" '[ "$(dg sh)" = hi ]'
+ok "shell alias reading settings works" 'dg shlist | grep -q "^alias.sh "'
+ok "shell alias can't reach the dotfiles repo" '! dg shstat >/dev/null && dg shstat | grep -q "not a git repository"'
+cd "$HOME/.config"
+ok "shell alias can't reach it from a subfolder either" '! dg shstat >/dev/null'
+cd "$HOME"
 # A git() wrapper that hands home-dir commands to dgit, exported into the
 # environment, must not make dgit call itself.
 git() { if [ "$PWD" = "$HOME" ]; then "$D" "$@"; else command git "$@"; fi; }
