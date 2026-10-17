@@ -200,7 +200,7 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
     if [ -z "$any" ]; then
         [[ $branch == '(detached)' ]] && branch='detached HEAD'
         echo "* "$'\e[32m'"$branch"$'\e[m'" Nothing to commit." # As git_tracked shows the branch
-        return 1
+        return 0
     fi
 
     if [ -n "$staged" ]; then
