@@ -40,3 +40,5 @@
 [alias]
 	alias = ! git config --get-regexp ^alias\\. | sed -e s/^alias\\.// -e s/\\ /\\ =\\ /
 	amend = commit --amend --no-edit
+[log]
+	excludeDecoration = refs/remotes/*/HEAD

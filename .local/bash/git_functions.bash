@@ -17,19 +17,11 @@ git() { # Allows for dgit to trigger when in home directory
 git_fetch() {
     git fetch
 }
-git_status() { # Shows untracked files as unstaged additions (" A") instead of "??"
-    local out color=never
-    [ -t 1 ] && color=always # Git drops its colors when captured, so ask for them
-    out=$(git -c color.status=$color status -sbuall) || return
-    out=${out//$'\n\e[31m??\e[m '/$'\n \e[31mA\e[m '} # Colored
-    out=${out//$'\n?? '/$'\n A '} # Plain
-    printf '%s\n' "$out"
+git_status() {
+    git status -sbuall
 }
 git_branches() {
     git branch -avv --color=always | grep -v -- ' -> '
-}
-git_log() { # git_log [count]: the last count commits, 11 by default
-    git --no-pager log --oneline -n "${1:-11}" --graph
 }
 git_diff() {
     git --no-pager diff HEAD
@@ -47,6 +39,40 @@ git_sync() { # Pushes when you have unpushed commits, otherwise pulls
     else
         git push # No upstream yet, so push sets one up (push.autoSetupRemote)
     fi
+}
+
+git_log() { # git_log [count]: the last count commits; by default 11, or as many as fit on screen
+    if [ -n "$1" ]; then
+        git --no-pager log --oneline -n "$1" --graph
+        return
+    fi
+    local out line plain prompt rows cols room used shown=0 esc=$'\e\[[0-9;]*m'
+    if [ ! -t 1 ]; then # Not printing to a screen, so nothing to fit
+        git --no-pager log --oneline -n 11 --graph
+        return
+    fi
+    # Captured, so ask for what Git only gives a screen: colors and the branch labels
+    out=$(git --no-pager log --oneline -n 11 --graph --color=always --decorate) || return
+    rows=${LINES:-$(tput lines 2> /dev/null)} cols=${COLUMNS:-$(tput cols 2> /dev/null)}
+    rows=${rows:-999} cols=${cols:-999}
+    # The prompt as shown, to measure the rows it takes (Bash 4.4 or newer; else one row)
+    prompt=
+    if (( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 4) )); then
+        prompt=${PS1@P}
+        prompt=${prompt//[$'\001\002']/}
+        while [[ $prompt =~ $esc ]]; do prompt=${prompt/"${BASH_REMATCH[0]}"/}; done
+    fi
+    # Room left once the command's line (the prompt and " git_log") and the next prompt are counted
+    room=$(( rows - (${#prompt} + 8 + cols - 1) / cols - (${#prompt} > 0 ? (${#prompt} + cols - 1) / cols : 1) ))
+    while IFS= read -r line; do
+        plain=$line # Without its colors, to measure; a line wider than the screen takes more rows
+        while [[ $plain =~ $esc ]]; do plain=${plain/"${BASH_REMATCH[0]}"/}; done
+        used=$(( (${#plain} + cols - 1) / cols ))
+        (( used > 0 )) || used=1
+        (( shown > 0 && used > room )) && break # Always at least one
+        printf '%s\n' "$line"
+        (( room -= used, shown++ ))
+    done <<< "$out"
 }
 
 git_tracked() { # Toggles staging between "every change to tracked files" and empty; new files you added stay staged
@@ -76,6 +102,10 @@ git_tracked() { # Toggles staging between "every change to tracked files" and em
             return 1
         fi
         git reset --quiet && echo "$branch Unstaged all files."
+    elif [[ $status == *'# branch.oid (initial)'* ]]; then # A new repo, with nothing staged
+        echo "$branch No tracked files, no commits yet."
+    elif [ -z "$(git ls-files | head -n 1)" ]; then # Commits, but none of them keep any files
+        echo "$branch No tracked files."
     elif [[ $status == *$'\n'[12?]' '* ]]; then # Only untracked files
         echo "$branch No changes to tracked files."
     else
@@ -235,11 +265,8 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
     return $status
 }
 
-# In Vim's terminal (Vim sets VIM_TERMINAL), Ctrl+H shows a shorter log, and Ctrl+] types
-# git_commit "" with the cursor between the quotes, as Git's editor misbehaves inside Vim.
-# They replace those keys from ~/.inputrc. gVim sends Ctrl+H as an escape code, so that too.
+# In Vim's terminal (Vim sets VIM_TERMINAL), Ctrl+] types git_commit "" with the cursor between
+# the quotes, replacing that key from ~/.inputrc, as Git's editor misbehaves inside Vim.
 if [[ -n "$VIM_TERMINAL" && $- == *i* ]]; then
     bind '"\C-]": "\C-e\C-u git_commit \"\"\C-b"'
-    bind '"\C-h": "\C-e\C-u git_log 6\C-m"'
-    bind '"\e[104;5u": "\C-e\C-u git_log 6\C-m"'
 fi
