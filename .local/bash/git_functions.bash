@@ -167,17 +167,19 @@ git_commit_key() { # Waits for one of git_commit's prompt keys and sets REPLY to
 
 git_commit() { # Commits what you staged, or everything if nothing is staged, offering to leave out secrets and junk
     # git_commit [message]: with a message, commits with it instead of opening the editor
-    local record path key kind i color status old_trap tty_state skip= any= staged= conflict= without= tree=
+    local record path key kind i color status old_trap tty_state skip= any= staged= conflict= without= tree= branch=
     local message=()
     (( $# )) && message=(-m "$1")
     local last_new= last_added= red= yellow= off= both= keep=
     local new=() new_kinds=() added=() added_kinds=() added_paths=() added_path_kinds=()
     local found=() kinds=() excludes=() remove=()
-    # One call: "? path" untracked, "1 XY ... path" / "2 XY ... path" changed (X staged, Y unstaged), "u ..." conflict
+    # One call: "# branch.head <name>", then "? path" untracked, "1 XY ... path" / "2 XY ... path"
+    # changed (X staged, Y unstaged), "u ..." conflict
     while IFS= read -r -d '' record; do
-        any=1
         if [ -n "$skip" ]; then skip=; continue; fi # The old path that follows a rename
+        [[ $record == '# '* ]] || any=1
         case $record in
+            '# branch.head '*) branch=${record#'# branch.head '} ;;
             '? '*)
                 if git_flagged "${record:2}" && [ "$REPLY" != "$last_new" ]; then
                     new+=("$REPLY"); new_kinds+=("$kind"); last_new=$REPLY
@@ -192,9 +194,14 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
                 fi ;;
             'u '*) conflict=1 ;;
         esac
-    done < <(git status --porcelain=v2 -z --untracked-files=all 2> /dev/null)
-    # Nothing to do, a conflict, or not a repo: Git says so itself
-    if [ -z "$any" ] || [ -n "$conflict" ]; then git commit "${message[@]}"; return; fi
+    done < <(git status --porcelain=v2 -z --branch --untracked-files=all 2> /dev/null)
+    # A conflict, or not a repo (no branch line): Git says so itself
+    if [ -n "$conflict" ] || [ -z "$branch" ]; then git commit "${message[@]}"; return; fi
+    if [ -z "$any" ]; then
+        [[ $branch == '(detached)' ]] && branch='detached HEAD'
+        echo "* "$'\e[32m'"$branch"$'\e[m'" Nothing to commit." # As git_tracked shows the branch
+        return 1
+    fi
 
     if [ -n "$staged" ]; then
         found=("${added[@]}"); kinds=("${added_kinds[@]}")
