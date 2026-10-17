@@ -14,9 +14,6 @@ git() { # Allows for dgit to trigger when in home directory
     fi
 }
 
-git_fetch() {
-    git fetch
-}
 git_status() {
     git status -sbuall
 }
@@ -25,6 +22,24 @@ git_branches() {
 }
 git_diff() {
     git --no-pager diff HEAD
+}
+
+git_fetch() { # Fetches, and follows a remote's HEAD (its default branch) if that changed there
+    local line status copy=${TMPDIR:-/tmp}/git_fetch.$$ progress=()
+    [ -t 2 ] && progress=(--progress) # Its output goes through tee, so ask for the meter a screen gets
+    # For this fetch only, never saved: Git says when a remote's HEAD differs from ours (Git 2.48+).
+    # The output shows as it comes, and tee keeps a copy to look for that in afterwards.
+    git -c fetch.followRemoteHEAD=warn -c advice.fetchRemoteHEADWarn=false fetch "${progress[@]}" 2>&1 |
+        tee "$copy" >&2
+    status=${PIPESTATUS[0]}
+    while IFS= read -r line; do
+        if [[ $line =~ ^\'HEAD\'\ at\ \'(.+)\'\ is\ \'(.+)\',\ but\ we\ have\ \'(.+)\'\ locally\.$ ]]; then
+            git remote set-head "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" > /dev/null &&
+                echo "${BASH_REMATCH[1]}/HEAD: ${BASH_REMATCH[3]} -> ${BASH_REMATCH[2]}"
+        fi
+    done < "$copy"
+    rm -f "$copy"
+    return $status
 }
 
 git_sync() { # Pushes when you have unpushed commits, otherwise pulls
