@@ -188,7 +188,7 @@
         " one left from before is deleted quietly (its check comes before the file type is known)
         autocmd FileType gitcommit setlocal noswapfile
         autocmd SwapExists COMMIT_EDITMSG,MERGE_MSG,SQUASH_MSG,TAG_EDITMSG let v:swapchoice = 'd'
-        autocmd FileType gitcommit startinsert
+        autocmd FileType gitcommit startinsert! " At the end of the line, as A does: after an amend's message
         autocmd FileType gitcommit let b:coc_enabled = 0
         autocmd FileType gitcommit setlocal spell spelllang=en_us
         " Spelling in plain colors: the theme's undercurl is one many terminals can't draw

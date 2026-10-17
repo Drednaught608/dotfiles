@@ -57,17 +57,21 @@ git_sync() { # Pushes when you have unpushed commits, otherwise pulls
 }
 
 git_log() { # git_log [count]: the last count commits; by default 11, or as many as fit on screen
+    # Label commits with HEAD, branches, tags and the stash only: not a remote's HEAD, nor refs
+    # other tools keep (refs/git-undo-redo/...)
+    local labels=(--decorate-refs=HEAD --decorate-refs=refs/heads/ --decorate-refs=refs/remotes/
+        --decorate-refs=refs/tags/ --decorate-refs=refs/stash --decorate-refs-exclude='refs/remotes/*/HEAD')
     if [ -n "$1" ]; then
-        git --no-pager log --oneline -n "$1" --graph
+        git --no-pager log --oneline -n "$1" --graph "${labels[@]}"
         return
     fi
     local out line plain prompt rows cols room used shown=0 esc=$'\e\[[0-9;]*m'
     if [ ! -t 1 ]; then # Not printing to a screen, so nothing to fit
-        git --no-pager log --oneline -n 11 --graph
+        git --no-pager log --oneline -n 11 --graph "${labels[@]}"
         return
     fi
     # Captured, so ask for what Git only gives a screen: colors and the branch labels
-    out=$(git --no-pager log --oneline -n 11 --graph --color=always --decorate) || return
+    out=$(git --no-pager log --oneline -n 11 --graph --color=always --decorate "${labels[@]}") || return
     rows=${LINES:-$(tput lines 2> /dev/null)} cols=${COLUMNS:-$(tput cols 2> /dev/null)}
     rows=${rows:-999} cols=${cols:-999}
     # The prompt as shown, to measure the rows it takes (Bash 4.4 or newer; else one row)
