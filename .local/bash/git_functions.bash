@@ -117,10 +117,6 @@ git_tracked() { # Toggles staging between "every change to tracked files" and em
             return 1
         fi
         git reset --quiet && echo "$branch Unstaged all files."
-    elif [[ $status == *'# branch.oid (initial)'* ]]; then # A new repo, with nothing staged
-        echo "$branch No tracked files, no commits yet."
-    elif [ -z "$(git ls-files | head -n 1)" ]; then # Commits, but none of them keep any files
-        echo "$branch No tracked files."
     elif [[ $status == *$'\n'[12?]' '* ]]; then # Only untracked files
         echo "$branch No changes to tracked files."
     else
