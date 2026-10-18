@@ -196,11 +196,35 @@ case $cmd in
     sed -n '2,12s/^# \{0,1\}//p' "$self"
     ;;
   # The suite runs dgit against throwaway homes in a temp dir. Run it with
-  # bash, so it works even where the file lost its executable bit.
+  # bash, so it works even where the file lost its executable bit. It runs as
+  # a child, so whatever stops it (Ctrl+C mid-git included), this tidies up
+  # after it: the temp dir, and on a terminal the live line it was cut short
+  # on. Ctrl+C is caught here, not ignored, so it still stops the suite. A run
+  # that couldn't tidy up (its terminal closed, say) leaves its dir behind; the
+  # next one removes it.
   test)
     t=${self%/*}/tests/dgit-test
     [ -f "$t" ] || die "no test suite at $t"
-    exec "$BASH" "$t"
+    for d in "${TMPDIR:-/tmp}"/dgit-test.*; do
+      [ -d "$d" ] && [ -O "$d" ] || continue  # Only yours: on Linux, /tmp is shared with other users
+      p=$(cat "$d/pid" 2> /dev/null)
+      [ -n "$p" ] && kill -0 "$p" 2> /dev/null || rm -rf "$d"  # Its run has ended
+    done
+    tmp=$(mktemp -d "${TMPDIR:-/tmp}/dgit-test.XXXXXX") || die "could not make a temp dir for the tests"
+    echo $$ > "$tmp/pid"  # This run's, so a later one knows whether the dir is still in use
+    trap : INT
+    DGIT_TEST_DIR=$tmp "$BASH" "$t"
+    status=$?
+    if [ -t 1 ] && [ $status -eq 130 ]; then echo; fi  # Stopped with Ctrl+C: end the live line it was on
+    # After Ctrl+C, a git the suite started can still be closing in there, and on
+    # Windows that keeps the dir from being removed: give it a moment. Still there,
+    # the next run removes it.
+    for i in 1 2 3 4 5; do
+      rm -rf "$tmp" 2> /dev/null
+      [ -e "$tmp" ] || break
+      sleep 0.2
+    done
+    exit $status
     ;;
   # checkout through bisect (and stash apply/pop below) write incoming files
   # into $HOME. Git silently overwrites ignored files but refuses to clobber

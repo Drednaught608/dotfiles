@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # Regression tests for dgit. Uses throwaway homes in a temp dir; never
-# touches your real $HOME or global git config.
+# touches your real $HOME or global git config. Run it with: dgit test, which
+# makes that temp dir, and tidies up after this however it stops.
 
 D=$(cd "$(dirname "$0")/.." && pwd)/dgit
-T=$(mktemp -d) || exit
-trap 'rm -rf "$T"' EXIT
+T=$DGIT_TEST_DIR
+[ -n "$T" ] && [ -d "$T" ] || { echo "dgit-test: run it with: dgit test" >&2; exit 2; }
+# Sections are timed with Bash's own clock, which older Bash (macOS's built-in 3.2) lacks
+[ -n "$EPOCHREALTIME" ] || { echo "dgit-test: needs Bash 5 or newer; this is $BASH_VERSION" >&2; exit 2; }
 export GIT_CONFIG_GLOBAL=$T/gitconfig GIT_CONFIG_NOSYSTEM=1
 unset DGIT_DIR XDG_DATA_HOME
 git config --global user.name t; git config --global user.email t@t
@@ -17,26 +20,62 @@ echo '*.secret' > "$T/global-ignore"; git config --global core.excludesFile "$T/
 
 pass=0 fail=0
 ok() { if eval "$2"; then pass=$((pass+1)); else fail=$((fail+1)); fails+="          $1"$'
-'; fi; }
+'; fi; live; }
 dg() { "$D" "$@" 2>&1; }
+# within <seconds> <command...>: run it, stopping it if it takes longer (timeout(1)
+# isn't on macOS)
+within() {
+  local s=$1 p w r
+  shift
+  "$@" & p=$!
+  ( sleep "$s"; kill "$p" 2> /dev/null ) & w=$!
+  wait "$p"; r=$?
+  kill "$w" 2> /dev/null; wait "$w" 2> /dev/null
+  return $r
+}
 
-# Progress: each section prints one line when it finishes, with any failed
-# tests listed under it. Colour only when writing to a terminal.
-if [ -t 1 ]; then c_ok=$'\e[32m' c_bad=$'\e[31m' c_bold=$'\e[1m' c_off=$'\e[0m'
-else c_ok= c_bad= c_bold= c_off=; fi
-sec= sp=0 sf=0 fails=
+# Sections: section "<name>" <count> starts one, and says how many tests it has.
+# Adding or removing a test means updating that count: a section whose count
+# doesn't match the tests that ran fails, and says what to change it to.
+#
+# Progress: each section prints one line when it finishes: which section of how
+# many, its passed/total tests and how long it took, with any failed tests listed
+# under it. On a terminal, a live line under them shows the section running now,
+# passed out of its count, updated after each test, and colours are used. Each
+# redraw is a single write that leaves the cursor at the start of the live line.
+if [ -t 1 ]; then tty=1 c_ok=$'\e[32m' c_bad=$'\e[31m' c_run=$'\e[33m' c_bold=$'\e[1m' c_off=$'\e[0m'
+else tty= c_ok= c_bad= c_run= c_bold= c_off=; fi
+nsec=$(grep -c '^section "[^"]' "$0") isec=0  # sections in this file, and how many have finished
+sec= count= sp=0 sf=0 st=0 fails= miscounts=0
+# line <status> <colour> <out of>: the current section's line as it stands now, in $sline
+line() {
+  local now=${EPOCHREALTIME//[!0-9]/} ms  # microseconds
+  ms=$(( (now - st) / 1000 ))
+  printf -v sline '  %s%s%s  [%0*d/%d]  %-46s %3d/%-3d %3d.%02ds' "$2" "$1" "$c_off" ${#nsec} $((isec + 1)) $nsec \
+    "$sec" $((pass - sp)) "$3" $((ms / 1000)) $((ms % 1000 / 10))
+}
+# live: redraw the live line at the bottom, in one write (only on a terminal, while a section runs)
+live() { [ -n "$tty" ] && [ -n "$sec" ] && { line 'RUN ' "$c_run" "$count"; printf '\r\e[K%s\r' "$sline"; }; }
 section() {
+  local ran=$((pass - sp + fail - sf))
   if [ -n "$sec" ]; then
-    if [ $((fail - sf)) -eq 0 ]; then
-      printf '  %sPASS%s  %-46s %d
-' "$c_ok" "$c_off" "$sec" $((pass - sp))
-    else
-      printf '  %sFAIL%s  %-46s %d/%d
-' "$c_bad" "$c_off" "$sec" $((pass - sp)) $((pass - sp + fail - sf))
-      printf '%s' "$fails"
+    if [ "$ran" != "$count" ]; then
+      fails+="          ${c_bad}The section says $count tests, but $ran ran: change its count, to read: section \"$sec\" $ran${c_off}"$'\n'
+      miscounts=$((miscounts + 1))
     fi
+    if [ $((fail - sf)) -eq 0 ] && [ "$ran" = "$count" ]; then line PASS "$c_ok" "$ran"; else line FAIL "$c_bad" "$ran"; fi
+    if [ -n "$tty" ]; then printf '\r\e[K%s\n' "$sline"; else printf '%s\n' "$sline"; fi  # In the live line's place
+    printf '%s' "$fails"
+    isec=$((isec + 1))
+  elif [ -n "$tty" ]; then
+    printf '\r\e[K'  # The end: clear the live line for the summary
   fi
-  sec=$1 sp=$pass sf=$fail fails=
+  sec=$1 count=$2 sp=$pass sf=$fail st=${EPOCHREALTIME//[!0-9]/} fails=
+  if [ -n "$sec" ] && [[ ! $count =~ ^[0-9]+$ ]]; then
+    echo "${c_bad}dgit-test: section \"$sec\" needs its test count, as: section \"$sec\" <count>${c_off}" >&2
+    exit 2
+  fi
+  live
 }
 
 echo "${c_bold}Dotfiles Git (dgit) test suite${c_off}"
@@ -50,7 +89,7 @@ export HOME=$T/a
 echo b > "$HOME/.bashrc"; echo n > "$HOME/.config/nvim/init.lua"
 echo l > "$HOME/.config/nvim/lazy.json"; echo junk > "$HOME/junk"
 
-section "Init and repo location"
+section "Init and repo location" 5
 dg init >/dev/null
 ok "ignore rule in place on first use" 'dg status >/dev/null; [ "$(cat "$HOME/.local/share/dgit/ignore")" = "*" ]'
 ok "init twice refused" '! dg init >/dev/null'
@@ -59,7 +98,7 @@ mkdir "$T/x1" "$T/x2"
 ok "XDG_DATA_HOME respected" 'HOME=$T/x1 XDG_DATA_HOME=$T/x1/data dg init >/dev/null && [ -f "$T/x1/data/dgit/HEAD" ]'
 ok "DGIT_DIR respected" 'HOME=$T/x2 DGIT_DIR=$T/x2/repo dg init >/dev/null && [ -f "$T/x2/repo/HEAD" ]'
 
-section "Adding from inside and outside ~"
+section "Adding from inside and outside ~" 7
 cd "$HOME/.config/nvim"; dg add init.lua >/dev/null
 ok "relative add inside home" 'dg ls-files --full-name :/ | grep -qx .config/nvim/init.lua'
 cd "$T/out"; echo o > "$T/out/x"
@@ -70,7 +109,7 @@ ok "outside home: nothing was staged" '[ "$(dg ls-files | wc -l)" = 1 ]'
 ok "outside home: absolute path into home works" 'dg add "$HOME/.bashrc" >/dev/null && dg ls-files | grep -qx .bashrc'
 ok "outside home: repo-wide commands work" 'dg status -s | grep -q .bashrc && dg commit -qm "x" --dry-run >/dev/null'
 
-section "Paths that resolve outside ~"
+section "Paths that resolve outside ~" 9
 # Any path that resolves outside ~ is refused, however it's written.
 mkdir -p "$T/ext/proj"; git init -q "$T/ext/proj"; echo e > "$T/ext/proj/e"; X=$T/ext; cd "$HOME"
 for c in "add $X/proj/e" "add $X/proj" "add /" "add ../ext/proj/e" "add .config/../../ext/proj" \
@@ -80,7 +119,7 @@ done
 ok "outside ~: nothing tracked" '! dg ls-files | grep -q "^\.\./\|ext/"'
 ok "inside ~ via .. still fine" 'dg add .config/../.config/nvim/init.lua >/dev/null'
 
-section "Relative and absolute paths into ~"
+section "Relative and absolute paths into ~" 8
 # Relative and absolute are both fine wherever they resolve inside ~.
 for f in .p1 .p2 .p3 .p4 .p5; do echo p > "$HOME/$f"; done
 ok "inside ~: ./name" 'dg add ./.p1 >/dev/null && dg ls-files | grep -qx .p1'
@@ -95,7 +134,7 @@ ok "from outside: non-path words pass untouched" '[ "$(dg config user.name)" = t
 cd "$HOME"
 cd "$HOME/.config"; ok "relative .. that stays in ~ is fine" 'dg add ../.bashrc >/dev/null'; cd "$HOME"
 
-section "Refused commands and protected paths"
+section "Refused commands and protected paths" 20
 cd "$HOME"
 ok "untracked hidden from status -uall" '[ "$(dg status -s -uall | grep -c "^??")" = 0 ]'
 for c in "add ." "add ./" "add $HOME" "add :/" \
@@ -110,7 +149,7 @@ ok "allowed: add ~/.bashrc via .. from inside repo" 'dg add ../../../.bashrc >/d
 cd "$HOME"
 ok "nothing from the repo or junk staged" '! dg ls-files | grep -qE "^(\.local|junk)"'
 
-section "Commit, push, status and stash"
+section "Commit, push, status and stash" 5
 dg add .config/nvim >/dev/null
 ok "directory add" 'dg ls-files | grep -qx .config/nvim/lazy.json'
 dg commit -qm one >/dev/null; dg remote add origin "$T/r.git"; dg push -q -u origin main >/dev/null
@@ -123,7 +162,7 @@ ok "stash -u stashes only tracked changes" 'dg stash -u -q && [ -f "$HOME/junk" 
 ok "stash round trip kept edit" 'tail -1 "$HOME/.bashrc" | grep -qx edit'
 dg commit -qam three
 
-section "add --all and -A"
+section "add --all and -A" 12
 # add --all / -A stages tracked changes (edits and deletions), nothing new.
 echo gone > "$HOME/.gone"; dg add .gone >/dev/null; dg commit -qm gone
 echo e2 >> "$HOME/.bashrc"; rm "$HOME/.gone"; echo n > "$HOME/.newfile"
@@ -134,7 +173,7 @@ for c in "add --all" "add -A" "add -vA" "add --update" "add -u" "aa"; do
 done
 dg commit -qm all
 
-section "Files inside project repos"
+section "Files inside project repos" 14
 cd "$HOME/proj"; git init -q; mkdir sub; echo p > p.txt; echo s > sub/s.txt; git add .; git commit -qm p
 ok "hook env vars ignored" '[ "$(GIT_DIR=$PWD/.git GIT_INDEX_FILE=$PWD/.git/index dg ls-files --full-name :/ | grep -c p.txt)" = 0 ]'
 
@@ -167,7 +206,7 @@ dg push -q
 cd "$HOME/proj"
 ok "project repo sees only its own change" '[ "$(git status -s -uno)" = " M p.txt" ] && [ "$(git ls-files | wc -l)" = 2 ]'
 
-section "rm protection for project repos"
+section "rm protection for project repos" 11
 # rm must not delete files that belong to a project's repo; untracking is fine.
 ok "rm refused for a file in a project repo" '! dg rm -q top.txt >/dev/null && [ -f top.txt ] && dg ls-files | grep -qx top.txt'
 ok "rm -r refused for a dir in a project repo" '! dg rm -q -r sub >/dev/null && [ -f sub/s.txt ]'
@@ -184,7 +223,7 @@ ok "plain rm of an ordinary dotfile deletes it" 'dg rm -q .rmme && [ ! -e .rmme 
 dg commit -qm rms; dg push -q; cd "$HOME/proj"
 cd "$HOME"; ok "plain git in home sees no repo" '! git status >/dev/null 2>&1'
 
-section "Clone onto a second machine"
+section "Clone onto a second machine" 10
 # Second machine: clone onto an existing file.
 echo mine > "$T/b/.bashrc"
 mkdir -p "$T/b/.config/nvim"; dg show HEAD:.config/nvim/init.lua > "$T/b/.config/nvim/init.lua"
@@ -202,7 +241,7 @@ ok "clone tracks upstream" 'HOME=$T/b dg status -sb | grep -q "origin/main"'
 ok "clone wrote no repo internals" '[ -f "$T/b/.local/share/dgit/ignore" ] && HOME=$T/b dg config remote.origin.url >/dev/null'
 ok "clone recreates nested paths" '[ "$(cat "$T/b/proj/sub/s.txt")" = s ]'
 
-section "Pull collisions"
+section "Pull collisions" 3
 # Incoming file collides with a local untracked one.
 echo v > "$HOME/.vimrc"; dg add .vimrc >/dev/null; dg commit -qm v; dg push -q
 echo precious > "$T/b/.vimrc"
@@ -211,7 +250,7 @@ ok "aliased pull refuses to clobber" '! HOME=$T/b dg up -q >/dev/null && [ "$(ca
 rm "$T/b/.vimrc"
 ok "pull works once moved" 'HOME=$T/b dg pull -q >/dev/null && [ "$(cat "$T/b/.vimrc")" = v ]'
 
-section "Files matched by other ignore rules"
+section "Files matched by other ignore rules" 4
 # Files that some other ignore rule matches (a project's .gitignore, the
 # global excludes file) must be protected too.
 cd "$HOME/proj"; echo .env > .gitignore; echo A-env > .env
@@ -227,7 +266,7 @@ mkdir -p "$T/c/proj"; echo .env > "$T/c/proj/.gitignore"; echo C-env > "$T/c/pro
 ok "clone won't clobber files a .gitignore matches" 'HOME=$T/c dg clone "$T/r.git" >/dev/null 2>&1 && [ "$(cat "$T/c/proj/.env")" = C-env ]'
 cd "$HOME"
 
-section "Pull contacts the remote once"
+section "Pull contacts the remote once" 14
 # Each connection to the remote runs its upload-pack; count them.
 printf '#!/bin/sh\necho . >> "%s"\nexec git upload-pack "$@"\n' "$T/contacts" > "$T/up.sh"; chmod +x "$T/up.sh"
 mkdir "$T/p"; HOME=$T/p dg clone "$T/r.git" >/dev/null 2>&1
@@ -260,7 +299,7 @@ ok "aliased pull still runs git pull, and works" 'P up -q >/dev/null 2>&1 && [ -
 push_new p6 .pull6
 ok "pull with arguments still runs git pull, and works" 'P pull -q origin main >/dev/null 2>&1 && [ -f "$T/p/.pull6" ] && [ "$(contacts)" = 2 ]'
 
-section "Deletions and paths starting with -"
+section "Deletions and paths starting with -" 3
 # Deleting a tracked file inside a project repo, then adding it, stages the deletion.
 rm "$HOME/proj/abs.txt"; cd "$HOME/proj"
 ok "nested repo: add of deleted file stages removal" 'dg add abs.txt >/dev/null && ! dg ls-files | grep -qx abs.txt'
@@ -269,7 +308,7 @@ ok "nested repo: dir starting with - after --" 'dg add -- -d >/dev/null && dg ls
 cd "$HOME"; echo dash > "$HOME/-dash"
 ok "path starting with - after --" 'dg add -- -dash >/dev/null && dg ls-files | grep -qx -- -dash'
 
-section "Option guards, aliases and wrappers"
+section "Option guards, aliases and wrappers" 8
 ok "refused: -C elsewhere" '! dg -C "$T" status >/dev/null'
 ok "refused: --git-dir override" '! dg --git-dir="$T/r.git" log >/dev/null'
 ok "shell alias runs" '[ "$(dg sh)" = hi ]'
@@ -282,15 +321,17 @@ cd "$HOME"
 # environment, must not make dgit call itself.
 git() { if [ "$PWD" = "$HOME" ]; then "$D" "$@"; else command git "$@"; fi; }
 export -f git
-ok "exported git() wrapper doesn't recurse" 'timeout 20 "$D" status -s >/dev/null 2>&1'
+ok "exported git() wrapper doesn't recurse" 'within 20 "$D" status -s >/dev/null 2>&1'
 unset -f git
 # Case-insensitive filesystems: a differently-cased path to home is still home.
 lc=$(printf %s "$HOME" | tr '[:upper:]' '[:lower:]'); uc=$(printf %s "$HOME" | tr '[:lower:]' '[:upper:]')
 if [ "$uc" != "$HOME" ] && [ "$uc" -ef "$HOME" ]; then
   cd "$uc/.config"; ok "differently-cased cwd counts as inside home" 'dg add nvim/init.lua >/dev/null'; cd "$HOME"
+else  # Still a test, so the section's count is the same on every filesystem
+  ok "differently-cased cwd counts as inside home (case-sensitive filesystem: nothing to test)" true
 fi
 
-section "Stash pop and the ignore file"
+section "Stash pop and the ignore file" 2
 # stash pop runs unignored; it must not list all of $HOME.
 echo junk > "$T/b/junk"; echo z >> "$T/b/.vimrc"
 HOME=$T/b dg stash -q
@@ -300,7 +341,7 @@ ok "stash pop output stays small" '[ "$(HOME=$T/b dg stash pop | grep -c junk)" 
 rm "$HOME/.local/share/dgit/ignore"
 ok "ignore file recreated" 'dg status >/dev/null; [ -f "$HOME/.local/share/dgit/ignore" ]'
 
-section "Edge cases"
+section "Edge cases" 9
 git init -q --bare "$T/empty.git"; mkdir "$T/e"
 ok "empty clone succeeds" 'HOME=$T/e dg clone "$T/empty.git" >/dev/null'
 ok "clone extra args rejected" '! HOME=$T/x dg clone "$T/r.git" extra >/dev/null'
@@ -320,4 +361,7 @@ if [ $fail -eq 0 ]; then
 else
   echo "${c_bad}$fail of $((pass + fail)) tests failed${c_off} in ${SECONDS}s."
 fi
-[ $fail -eq 0 ]
+if [ $miscounts -gt 0 ]; then
+  echo "${c_bad}$miscounts section count$([ $miscounts -eq 1 ] || echo s) wrong: update the section line$([ $miscounts -eq 1 ] || echo s) shown above.${c_off}"
+fi
+[ $fail -eq 0 ] && [ $miscounts -eq 0 ]
