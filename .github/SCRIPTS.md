@@ -68,6 +68,7 @@ To redo just one step, run that script instead.
 update_ssh                   # fix permissions and check the key
 update_ssh --derive          # create the key from your master password
 update_ssh --derive --force  # same, replacing a different existing key
+update_ssh --server          # install and turn on an SSH server, key-only; if one is running, offer to turn it off
 ```
 
 The same password always gives the same key, on any machine, so there's nothing to copy. If `~/.ssh/id_ed25519` is already a different key, `--derive` refuses to touch it; `--force` replaces it, keeping the old one as `id_ed25519.old-<timestamp>`.
@@ -75,6 +76,36 @@ The same password always gives the same key, on any machine, so there's nothing 
 The key's 32-byte Ed25519 seed is PBKDF2-HMAC-SHA512 of the password, with 3,000,000 iterations and, as salt, the first 8 bytes of SHA-256 of `dgit ssh v1 Drednaught608`. Any tool that computes that recovers the key. Those values are fixed for good, and `update_ssh` checks a known answer before every derive, so a changed `openssl` can't quietly produce a different key. The password is passed to `openssl` on stdin, never as an argument. Your public key is published on GitHub, so anyone can try guesses offline: use a long password. On macOS, `--derive` needs OpenSSL 3 installed (the built-in `openssl` is LibreSSL); otherwise copy in an existing key.
 
 `update_ssh` sets `~/.ssh` permissions so ssh accepts the key: `700` for the directory, `600` for private keys and `config`, and `644` for `.pub` and `known_hosts`. On Windows it also sets owner-only ACLs with `icacls`, which Windows OpenSSH requires. Then it checks that the key authenticates to GitHub. If GitHub doesn't accept it, it tells you the key is either the wrong one (for a derived key, a mistyped password) or a new one, and prints the public key to add at <https://github.com/settings/keys>, as both an Authentication and a Signing key.
+
+The keys allowed to log in to a machine over SSH are in [`~/.ssh/authorized_keys`](../.ssh/authorized_keys), one per line, as the text of each `.pub` file; the end of each line is a comment saying whose key it is. It's part of the dotfiles, and the SSH server reads it there by default, so on Linux and macOS a key you add or remove works on each machine as soon as it pulls. A key added another way (by `ssh-copy-id`, say) shows up as a change to commit.
+
+`update_ssh --server` deals with the SSH server and nothing else. If one is installed, on or off, and its setup (below) isn't up to date, it brings it up to date without asking, and that's all; run it again to turn the server on or off. Once it's up to date, or if there's no server, it asks, with `[y/n]`, depending on what's here:
+
+| Here | It asks |
+|---|---|
+| A server is running (something answers on port 22) | `Turn it off?` Yes stops it and keeps it from starting with the computer, but leaves it installed. |
+| A server is installed, but off | `Turn it on?` |
+| No server | `Install one and turn it on?` |
+
+Turning one on sets it to start with the computer, then sets it up as below: key-only, reading your keys. What that installs or turns on:
+
+- **Windows:** the OpenSSH Server feature, its `sshd` service and a firewall rule for port 22.
+- **macOS:** Remote Login, with `systemsetup`. macOS may want your terminal app to have Full Disk Access for that (System Settings > Privacy & Security); otherwise turn on Remote Login in System Settings > General > Sharing.
+- **Linux:** the `openssh-server` package (`openssh` on Arch), through `apt`, `dnf` or `pacman`, and its systemd service. Another package manager, or no systemd, is an error that says to install it yourself.
+
+The SSH server's setup:
+
+- **Key-only logins.** Once there's a key to log in with, the server is set never to accept a password (`PasswordAuthentication no`, `KbdInteractiveAuthentication no`). On Linux and macOS that's a file of its own, `/etc/ssh/sshd_config.d/01-dotfiles-keys-only.conf`, written with `sudo`; on Windows it's the first lines of `C:\ProgramData\ssh\sshd_config`. It's only written when it isn't in place already, and the server's own check (`sshd -t`) has to pass first, or the change is undone. Then the running server is reloaded (on macOS, which starts the server for each login, there's nothing to reload). If `sshd_config` doesn't read `sshd_config.d`, it tells you the line to add.
+- **Linux and macOS:** the server ignores your keys if your home folder can be written by others, so that's fixed, and on SELinux systems `~/.ssh` is relabelled.
+- **Windows:** for an account in the Administrators group, the server reads `C:\ProgramData\ssh\administrators_authorized_keys` instead (as its `sshd_config` says by default), so `authorized_keys` is copied there, limited to Administrators and SYSTEM, as the server requires. It's a copy, so after your keys change it needs copying again. Without admin rights that file can't even be read, so `update_ssh` keeps a record of the last copy it made (`~/.local/share/dotfiles/administrators_authorized_keys`): when your keys match it, and the server's copy is still there, the same size, it's up to date.
+- **Windows, the shell:** an SSH login gets Bash, Git's `bin\bash.exe` (the launcher, which sets `PATH` up as the Git Bash window does), instead of `cmd`. That's the server's `DefaultShell` in the registry (`HKLM\SOFTWARE\OpenSSH`), for every account that logs in over SSH. `scp` into the machine goes through it too, running Git's own `scp`; `sftp` doesn't.
+
+Who does it:
+
+- **Linux and macOS:** plain `update_ssh` sets up whatever SSH server is here, on or off, with `sudo`, only for what isn't in place yet; `--server` does too, when it turns one on. On macOS the server is always installed, so it's set up before you turn on Remote Login. After installing a server some other way, run `update_ssh` again.
+- **Windows:** only `--server`, since all of it takes admin rights, and plain `update_ssh` never asks for them, so installing the dotfiles takes no UAC prompt. Instead it says when the server is out of date (after your keys change, say) and to run `update_ssh --server`, which brings it up to date. Each `--server` run that changes something takes one UAC prompt, with Windows' `sudo` or in a terminal opened as administrator, whether it updates, installs, or turns the server on or off; turning one on or off also brings its setup up to date in that same prompt.
+
+Without admin rights, it says what still needs doing and to run it again.
 
 ## update_terminal
 

@@ -3,6 +3,10 @@ if [[ $OSTYPE == msys* || $OSTYPE == cygwin* ]]; then
 
     # Windows Aliases
     alias ls='ls --color=auto --show-control-chars'
+    # Windows' own ssh rather than Git's: under Windows Terminal, Git's passes a Windows
+    # SSH server's keys through as raw codes (;29;0;1;8;1_...) at the start of a session.
+    # Git's own commands still use Git's ssh; this is only the ssh you type.
+    alias ssh="${SYSTEMROOT//\\//}/System32/OpenSSH/ssh.exe"
 
     # open: opens each file or folder with its Windows app (a folder in Explorer), or a link
     # (https:, mailto:, shell:Downloads, ms-settings:...). Paths can be written either way,
@@ -41,6 +45,26 @@ if [[ $OSTYPE == msys* || $OSTYPE == cygwin* ]]; then
         done
         return $status # Explorer's own status is 1 even when it worked, so it isn't used
     }
+
+    # snip: Tab on its first argument offers your snippets (the folders in ~/.config/snip);
+    # anywhere else, or when no snippet matches, Bash completes files here as usual
+    _snip() {
+        local d
+        COMPREPLY=()
+        (( COMP_CWORD == 1 )) || return
+        for d in ~/.config/snip/*/; do
+            [ -d "$d" ] && d=${d%/} && COMPREPLY+=("${d##*/}")
+        done
+        COMPREPLY=($(compgen -W "${COMPREPLY[*]}" -- "${COMP_WORDS[1]}"))
+    }
+    complete -o default -F _snip snip
+
+    # Logged in over SSH, Windows' SSH server garbles some pasted text (like text with
+    # escape codes in it) inside bracketed paste's start and end markers, and Bash then
+    # waits for an end that never comes, frozen. So take a paste as plain typing here.
+    if [ -n "$SSH_CONNECTION" ]; then
+        bind 'set enable-bracketed-paste off'
+    fi
 
     # Windows' own Vim (gVim or console) starts its terminal's Bash in a folder written the
     # Windows way (C:/Users/...); use the usual /c/Users/... instead, so the prompt shows ~

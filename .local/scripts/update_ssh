@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # update_ssh - lock down ~/.ssh permissions so ssh accepts your keys, then
 # check the key authenticates to GitHub. Works on Linux, macOS and Git Bash.
+# If there's an SSH server here, it's also made key-only: never a password.
 #
 #   update_ssh                   fix permissions and check the key
 #   update_ssh --derive          create the key from your master password
 #   update_ssh --derive --force  same, replacing a different existing key
+#   update_ssh --server          bring the SSH server up to date (key-only); once it
+#                                is, offer to turn it on (installing it) or off
 #
 # Windows OpenSSH ignores Unix modes and instead rejects keys whose ACL lets
 # anyone but you (or SYSTEM) read them, so on Windows the ACLs are set too.
@@ -98,18 +101,43 @@ derive() {
 
 die() { echo "update_ssh: $*" >&2; exit 1; }
 
-derive= force=
+derive= force= server_mode=
 for a; do
   case $a in
     --derive) derive=1 ;;
     --force) force=1 ;;
-    -h|--help) sed -n '2,7s/^# \{0,1\}//p' "$0"; exit ;;
+    --server) server_mode=1 ;;
+    -h|--help) sed -n '2,10s/^# \{0,1\}//p' "$0"; exit ;;
     *) echo "update_ssh: unknown option '$a'" >&2; exit 2 ;;
   esac
 done
 [ -z "$force" ] || [ -n "$derive" ] || die "--force only goes with --derive"
+[ -z "$server_mode" ] || [ -z "$derive" ] || die "--server goes on its own"
 
-case $(uname -s) in MINGW*|MSYS*|CYGWIN*) win=1 ;; *) win= ;; esac
+case $(uname -s) in MINGW*|MSYS*|CYGWIN*) win=1 ;; Darwin) win= mac=1 ;; *) win= mac= ;; esac
+
+# as_admin <PowerShell script>: on Windows, run it as administrator: directly
+# if this is elevated already, else through Windows' sudo (a UAC prompt).
+# Fails when neither works.
+if [ -n "$win" ]; then groups=$("$(cygpath -S)/whoami.exe" //groups //fo csv); fi
+as_admin() {
+  local ps=(powershell.exe -NoProfile -NonInteractive -EncodedCommand
+    "$(printf '%s' "\$ErrorActionPreference = 'Stop'
+\$ProgressPreference = 'SilentlyContinue'  # no progress records in the output
+$1" | iconv -f UTF-8 -t UTF-16LE | base64 -w 0)")
+  if [[ $groups == *'"S-1-16-12288"'* ]]; then  # High integrity: already elevated
+    MSYS_NO_PATHCONV=1 "${ps[@]}"
+  elif command -v sudo >/dev/null; then
+    echo "update_ssh: asking for admin rights with sudo"
+    MSYS_NO_PATHCONV=1 sudo "${ps[@]}"
+  else
+    return 1
+  fi
+}
+# as_root <command...>: elsewhere, run it as root, through sudo unless this is root
+as_root() { if [ "$(id -u)" = 0 ]; then "$@"; else sudo "$@"; fi; }
+# Is an SSH server listening here?
+server_running() { (exec 3<>/dev/tcp/127.0.0.1/22) 2>/dev/null; }
 
 # MSYS_NO_PATHCONV stops Git Bash from rewriting icacls' /flags as paths.
 lock() {  # lock <path> <unix mode>
@@ -154,6 +182,330 @@ fetch() {
   else wget -qO- --timeout=10 "$1"
   fi
 }
+
+# The keys that may log in to this machine: one per line, part of the dotfiles
+AUTH=$SSH_DIR/authorized_keys
+incomplete=  # Set when the SSH server's setup is left unfinished (and said so)
+haskeys=
+[ -f "$AUTH" ] && grep -qE '^[^#[:space:]]' "$AUTH" && haskeys=1
+
+# Key-only logins: once authorized_keys has a key to log in with, the server is
+# told never to take a password, nor keyboard-interactive logins (how PAM asks
+# for one). That's the server's own config, so it's written with admin rights,
+# and only when it isn't in place yet. sshd -t checks the result first: a server
+# too old for a setting would refuse to start, so then the change is undone.
+KEYS_ONLY_MARK="# Key-only logins, from the dotfiles (update_ssh): never accept a password"
+KEYS_ONLY="$KEYS_ONLY_MARK
+PasswordAuthentication no
+KbdInteractiveAuthentication no"
+
+# Windows' SSH server reads an administrator's keys from its own copy, which
+# only an elevated process can read or write. So update_ssh keeps a record of
+# the last copy it made, to tell without admin rights whether it's up to date.
+if [ -n "$win" ]; then
+  win_server=$(cygpath -F 35)/ssh  # 35: ProgramData, wherever it is
+  admin_keys=$win_server/administrators_authorized_keys
+  admin_copy=${XDG_DATA_HOME:-$HOME/.local/share}/dotfiles/administrators_authorized_keys
+  # The shell an SSH login gets: Git's bash.exe launcher, which sets PATH up as
+  # Git Bash does. Named the Windows way: in Git Bash, /bin is /usr/bin.
+  win_bash=$(cygpath -w /)bin\\bash.exe
+  [ -f "$(cygpath -m /)bin/bash.exe" ] || die "no Git Bash launcher at $win_bash"
+fi
+# win_shell: the login shell Windows' SSH server is set to give, if any
+win_shell() {
+  MSYS_NO_PATHCONV=1 reg.exe query 'HKLM\SOFTWARE\OpenSSH' /v DefaultShell 2>/dev/null |
+    tr -d '\r' | sed -n 's/^ *DefaultShell *REG_SZ *//p'
+}
+is_admin() { [[ $groups == *'"S-1-5-32-544"'* ]]; }
+# admin_keys_current: the record matches your keys, and the server's copy is still
+# there, the same size (its size can be seen, though not what's in it)
+admin_keys_current() {
+  cmp -s "$AUTH" "$admin_copy" && [ -e "$admin_keys" ] &&
+    [ "$(stat -c %s "$admin_keys")" = "$(stat -c %s "$admin_copy")" ]
+}
+# win_steps <step>...: the PowerShell, to run as administrator, for each step:
+# keys copies your keys to the server's copy, limited to Administrators and
+# SYSTEM, as it requires; keyonly makes it key-only, at the top of sshd_config,
+# before any Match block; bash makes Bash the shell an SSH login gets (its
+# DefaultShell in the registry). Each looks at sshd_config when it runs, so they work
+# right after the server is installed (it writes sshd_config when it first starts).
+win_steps() {
+  local q="'" step src out=  # A ' inside a PowerShell '...' string is written ''
+  if [[ " $* " == *" keys "* ]]; then
+    read -r -d '' step <<'EOF'
+$cfg = Join-Path $env:ProgramData 'ssh\sshd_config'
+$dest = Join-Path $env:ProgramData 'ssh\administrators_authorized_keys'
+if (Select-String -Quiet -Path $cfg -Pattern '^[^#]*administrators_authorized_keys') {
+  Copy-Item -Force -LiteralPath '@SRC@' -Destination $dest
+  icacls.exe $dest /inheritance:r /grant '*S-1-5-32-544:F' /grant '*S-1-5-18:F' | Out-Null
+  if ($LASTEXITCODE) { exit 1 }
+}
+EOF
+    src=$(cygpath -w "$AUTH")
+    out+=${step//@SRC@/"${src//$q/$q$q}"}$'\n'
+  fi
+  if [[ " $* " == *" keyonly "* ]]; then
+    read -r -d '' step <<'EOF'
+$cfg = Join-Path $env:ProgramData 'ssh\sshd_config'
+if (-not (Select-String -Quiet -SimpleMatch -Path $cfg -Pattern '@MARK@')) {
+  $old = [IO.File]::ReadAllText($cfg)
+  $block = '@BLOCK@' -replace "`n", "`r`n"
+  [IO.File]::WriteAllText($cfg, $block + "`r`n`r`n" + $old)
+  $sshd = (Get-CimInstance Win32_Service -Filter "Name='sshd'").PathName.Trim('"')
+  & $sshd -t -f $cfg
+  if ($LASTEXITCODE) { [IO.File]::WriteAllText($cfg, $old); exit 2 }
+  if ((Get-Service sshd).Status -eq 'Running') { Restart-Service sshd }
+}
+EOF
+    step=${step//@MARK@/"${KEYS_ONLY_MARK//$q/$q$q}"}
+    out+=${step//@BLOCK@/"${KEYS_ONLY//$q/$q$q}"}$'\n'
+  fi
+  if [[ " $* " == *" bash "* ]]; then
+    read -r -d '' step <<'EOF'
+$key = 'HKLM:\SOFTWARE\OpenSSH'
+if (-not (Test-Path $key)) { New-Item -Path $key -Force | Out-Null }
+New-ItemProperty -Path $key -Name DefaultShell -Value '@SHELL@' -PropertyType String -Force | Out-Null
+EOF
+    out+=${step//@SHELL@/"${win_bash//$q/$q$q}"}$'\n'
+  fi
+  printf '%s' "$out"
+}
+# win_record <step>...: after a copy of your keys, keep the record of it
+win_record() {
+  [[ " $* " != *" keys "* ]] || { mkdir -p "${admin_copy%/*}" && cp "$AUTH" "$admin_copy"; }
+}
+# win_needs: what the server here still needs, worked out without admin rights:
+# the steps for win_steps in needs, and what they do in what
+win_needs() {
+  needs=() what=()
+  [ -f "$win_server/sshd_config" ] || return 0  # No server, nothing to set up
+  if [ -f "$AUTH" ] && is_admin &&
+     grep -qE '^[^#]*administrators_authorized_keys' "$win_server/sshd_config" && ! admin_keys_current; then
+    needs+=(keys) what+=("copy your keys to $(cygpath -w "$admin_keys"), where it reads an administrator's")
+  fi
+  if [ -n "$haskeys" ] && ! grep -qF "$KEYS_ONLY_MARK" "$win_server/sshd_config"; then
+    needs+=(keyonly) what+=("make it key-only")
+  fi
+  if [ "$(win_shell)" != "$win_bash" ]; then
+    needs+=(bash) what+=("make Bash the shell an SSH login gets")
+  fi
+}
+# win_update: do what win_needs found, as administrator (one UAC prompt), if anything
+win_update() {
+  win_needs
+  (( ${#needs[@]} )) || return 0
+  printf -v todo '%s; ' "${what[@]}"
+  echo "update_ssh: the SSH server needs admin rights to ${todo%; }"
+  as_admin "$(win_steps "${needs[@]}")"
+  case $? in
+    0) win_record "${needs[@]}"
+       echo "update_ssh: the SSH server is set up: ${todo%; }" ;;
+    2) incomplete=1
+       echo "update_ssh: the SSH server's config check (sshd -t, above) failed with the key-only settings, so its sshd_config was left as it was" >&2 ;;
+    *) incomplete=1
+       echo "update_ssh: the SSH server needs escalated privileges to ${todo%; }. Turn on sudo (Settings > System > For developers) or open a terminal as administrator, then run 'update_ssh --server' again." >&2 ;;
+  esac
+}
+
+# server_setup: get whatever SSH server is here ready: key-only, reading your
+# keys. Whatever it can't do itself is said, and sets incomplete, so the run
+# ends in failure and can be fixed and run again.
+server_setup() {
+  if [ -z "$win" ]; then
+    # The server ignores your keys if your home folder can be written by others
+    # (StrictModes), and on SELinux systems if ~/.ssh isn't labelled as SSH's.
+    if [ -n "$(find "$HOME" -maxdepth 0 \( -perm -020 -o -perm -002 \))" ]; then
+      chmod go-w "$HOME" && echo "update_ssh: made your home folder writable only by you, as the SSH server requires"
+    fi
+    if command -v selinuxenabled >/dev/null && selinuxenabled; then restorecon -R "$SSH_DIR"; fi
+  fi
+
+  if [ -n "$win" ]; then
+    # Windows: that takes admin rights, which plain update_ssh never asks for (so
+    # installing the dotfiles takes no UAC prompt); it only says what's out of date
+    win_needs
+    if (( ${#needs[@]} )) && [ -z "$server_mode" ]; then
+      printf -v todo '%s; ' "${what[@]}"
+      echo "update_ssh: the SSH server here is out of date; it still needs to ${todo%; }."
+      echo "  That takes admin rights, so run 'update_ssh --server', which brings it up to date."
+    fi
+  elif [ -d /etc/ssh/sshd_config.d ] && [ -n "$haskeys" ]; then  # No such folder, no server
+    # Linux and macOS: a file of its own in sshd_config.d, read before the rest,
+    # whose first value for each setting wins; it's read and compared without root.
+    dropin=/etc/ssh/sshd_config.d/01-dotfiles-keys-only.conf
+    if [ "$(cat "$dropin" 2>/dev/null)" != "$KEYS_ONLY" ]; then
+      if ! grep -qE '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config\.d/' /etc/ssh/sshd_config; then
+        incomplete=1
+        echo "update_ssh: /etc/ssh/sshd_config doesn't read /etc/ssh/sshd_config.d, so the SSH server can't be made key-only there. Add this as its first line, then run update_ssh again:
+  Include /etc/ssh/sshd_config.d/*.conf" >&2
+      elif [ "$(id -u)" != 0 ] && ! command -v sudo >/dev/null; then
+        incomplete=1
+        echo "update_ssh: making the SSH server key-only needs root, and there's no sudo; run update_ssh as root" >&2
+      else
+        echo "update_ssh: making the SSH server key-only, in $dropin (needs root)"
+        if printf '%s\n' "$KEYS_ONLY" | as_root tee "$dropin" >/dev/null && as_root chmod 644 "$dropin"; then
+          if as_root sshd -t; then
+            reloaded=
+            if command -v systemctl >/dev/null; then
+              for svc in ssh sshd; do  # Its name: ssh on Debian and Ubuntu, sshd elsewhere
+                if systemctl is-active --quiet "$svc"; then as_root systemctl reload "$svc" && reloaded=1; break; fi
+              done
+            fi
+            if [ -n "$reloaded" ]; then echo "update_ssh: the SSH server is key-only now"
+            else echo "update_ssh: the SSH server is key-only from the next time it starts"; fi
+          else
+            as_root rm -f "$dropin"
+            incomplete=1
+            echo "update_ssh: the SSH server's config check (sshd -t, above) failed with the key-only settings, so $dropin was removed again" >&2
+          fi
+        else
+          incomplete=1
+          echo "update_ssh: couldn't write $dropin without root; run update_ssh again in a terminal, where sudo can ask for your password" >&2
+        fi
+      fi
+    fi
+  fi
+}
+
+# --server, and only that: asks first, then turns on an SSH server here (installing
+# it if need be) and sets it up as server_setup does, or turns off the one that's
+# running, leaving it installed.
+ssh_service() {  # Linux: the server's systemd service, ssh on Debian and Ubuntu, sshd elsewhere
+  local s
+  for s in ssh sshd; do
+    systemctl list-unit-files "$s.service" 2>/dev/null | grep -q "^$s\.service" && { echo "$s"; return; }
+  done
+  return 1
+}
+no_admin="that needs escalated privileges: turn on sudo (Settings > System > For developers) or open a terminal as administrator"
+# Windows: what --server's one elevated call also does, whether turning the server
+# on or off: copy your keys for an administrator, make it key-only, and make Bash
+# the shell an SSH login gets
+server_steps=()
+if [ -n "$win" ]; then
+  if [ -f "$AUTH" ] && is_admin; then server_steps+=(keys); fi
+  if [ -n "$haskeys" ]; then server_steps+=(keyonly); fi
+  server_steps+=(bash)
+fi
+server_on() {
+  if [ -n "$win" ]; then
+    echo "update_ssh: turning on Windows' SSH server and setting it up (installing it first takes a few minutes)"
+    read -r -d '' step <<'EOF'
+if (-not (Get-Service sshd -ErrorAction SilentlyContinue)) {
+  $feature = Get-WindowsCapability -Online -Name 'OpenSSH.Server*' | Select-Object -First 1
+  Add-WindowsCapability -Online -Name $feature.Name | Out-Null
+}
+Set-Service sshd -StartupType Automatic
+Start-Service sshd
+if (-not (Get-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue)) {
+  New-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -DisplayName 'OpenSSH Server (sshd)' -Enabled True `
+    -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 | Out-Null
+}
+EOF
+    as_admin "$step
+$(win_steps "${server_steps[@]}")"
+    case $? in
+      0) win_record "${server_steps[@]}" ;;
+      2) incomplete=1
+         echo "update_ssh: the SSH server's config check (sshd -t, above) failed with the key-only settings, so its sshd_config was left as it was" >&2 ;;
+      *) die "couldn't turn on the SSH server; $no_admin, then run 'update_ssh --server' again" ;;
+    esac
+  elif [ -n "$mac" ]; then
+    echo "update_ssh: turning on Remote Login, macOS's SSH server (needs root)"
+    as_root systemsetup -setremotelogin on ||
+      die "couldn't turn on Remote Login. If it says it needs Full Disk Access, give that to your terminal app (System Settings > Privacy & Security), or turn on Remote Login yourself (System Settings > General > Sharing); then run update_ssh again"
+  else
+    command -v systemctl >/dev/null ||
+      die "this system doesn't run systemd, so update_ssh can't turn on its SSH server; install and start OpenSSH's server yourself, then run update_ssh again"
+    if ! command -v sshd >/dev/null && [ ! -x /usr/sbin/sshd ]; then
+      echo "update_ssh: installing OpenSSH's server (needs root)"
+      if command -v apt-get >/dev/null; then as_root apt-get update -q && as_root apt-get install -y openssh-server
+      elif command -v dnf >/dev/null; then as_root dnf install -y openssh-server
+      elif command -v pacman >/dev/null; then as_root pacman -S --needed --noconfirm openssh
+      else die "update_ssh doesn't know this system's package manager; install OpenSSH's server yourself, then run 'update_ssh --server' again"
+      fi || die "couldn't install OpenSSH's server (see above)"
+    fi
+    svc=$(ssh_service) || die "OpenSSH's server is installed, but its systemd service (ssh or sshd) isn't there"
+    echo "update_ssh: turning on the SSH server, $svc.service (needs root)"
+    as_root systemctl enable --now "$svc" || die "couldn't turn on the SSH server (see above)"
+  fi
+  for i in 1 2 3 4 5; do server_running && break; sleep 1; done
+  server_running || die "the SSH server was turned on, but nothing answers on port 22 here${mac:+ (on macOS, Remote Login may need your terminal app to have Full Disk Access: System Settings > Privacy & Security)}"
+  echo "update_ssh: the SSH server is on, and starts with the computer"
+}
+server_off() {
+  if [ -n "$win" ]; then
+    as_admin "Stop-Service sshd
+Set-Service sshd -StartupType Disabled
+$(win_steps "${server_steps[@]}")"
+    case $? in
+      0) win_record "${server_steps[@]}" ;;
+      2) incomplete=1
+         echo "update_ssh: the SSH server's config check (sshd -t, above) failed with the key-only settings, so its sshd_config was left as it was" >&2 ;;
+      *) die "couldn't turn off the SSH server; $no_admin, then run 'update_ssh --server' again" ;;
+    esac
+  elif [ -n "$mac" ]; then
+    as_root systemsetup -f -setremotelogin off || die "couldn't turn off Remote Login (see above)"
+  else
+    svc=$(ssh_service) || die "an SSH server is running, but not as the ssh or sshd systemd service, so update_ssh can't turn it off"
+    as_root systemctl disable --now "$svc" || die "couldn't turn off the SSH server (see above)"
+    # Ubuntu can also start it when a connection comes in, through ssh.socket
+    if systemctl list-unit-files ssh.socket 2>/dev/null | grep -q '^ssh\.socket'; then
+      as_root systemctl disable --now ssh.socket || die "couldn't turn off ssh.socket (see above)"
+    fi
+  fi
+  echo "update_ssh: the SSH server is off, and stays off after a restart (it's still installed)"
+}
+# ask <question>: put it to you as [y/n]; true for y or yes
+ask() {
+  local answer
+  { printf 'update_ssh: %s [y/n] ' "$1"; read -r answer; } 2>/dev/null </dev/tty >/dev/tty ||
+    die "--server asks before changing anything, so run it in a terminal"
+  case $answer in [yY] | [yY][eE][sS]) return 0 ;; *) return 1 ;; esac
+}
+# server_installed: is an SSH server installed here, running or not?
+server_installed() {
+  if [ -n "$win" ]; then "$(cygpath -S)/sc.exe" query sshd >/dev/null
+  elif [ -n "$mac" ]; then true  # macOS always has one: Remote Login
+  else command -v sshd >/dev/null || [ -x /usr/sbin/sshd ]
+  fi
+}
+# server_needs: is the server here, on or off, missing part of its setup that
+# update_ssh can do? (Not what only you can fix, like a sshd_config that doesn't
+# read sshd_config.d: then --server would never get past it to its question.)
+server_needs() {
+  if [ -n "$win" ]; then
+    win_needs
+    (( ${#needs[@]} ))
+  else
+    [ -n "$(find "$HOME" -maxdepth 0 \( -perm -020 -o -perm -002 \))" ] && return 0
+    [ -d /etc/ssh/sshd_config.d ] && [ -n "$haskeys" ] &&
+      grep -qE '^[[:space:]]*Include[[:space:]]+/etc/ssh/sshd_config\.d/' /etc/ssh/sshd_config &&
+      [ "$(cat /etc/ssh/sshd_config.d/01-dotfiles-keys-only.conf 2>/dev/null)" != "$KEYS_ONLY" ]
+  fi
+}
+if [ -n "$server_mode" ]; then  # This is all --server does
+  if server_installed && server_needs; then
+    # Bring its setup up to date first, without asking; run it again to turn it on or off
+    if [ -n "$win" ]; then win_update; else server_setup; fi
+  elif server_running; then
+    if ask "an SSH server is running here. Turn it off?"; then server_off
+    else echo "update_ssh: left the SSH server running"; fi
+  else
+    if server_installed; then question="the SSH server is installed here, but off. Turn it on?"
+    else question="there's no SSH server here. Install one and turn it on?"; fi
+    if ask "$question"; then
+      server_on
+      lock "$SSH_DIR" 700  # The server ignores keys others could change
+      [ ! -f "$AUTH" ] || lock "$AUTH" 600
+      server_setup
+    else
+      echo "update_ssh: left the SSH server off"
+    fi
+  fi
+  [ -z "$incomplete" ] || exit 1  # The SSH server isn't fully set up (said above)
+  exit 0
+fi
 
 if [ -n "$derive" ]; then
   command -v openssl >/dev/null && command -v ssh-keygen >/dev/null ||
@@ -208,6 +560,8 @@ for f in "$SSH_DIR"/*; do
 done
 echo "update_ssh: permissions set on $SSH_DIR"
 
+server_setup
+
 # ssh -T exits 1 even on success (GitHub offers no shell), so check the text.
 out=$(ssh -T -o StrictHostKeyChecking=accept-new -o BatchMode=yes git@github.com 2>&1)
 case $out in
@@ -230,3 +584,4 @@ EOF
     fi
     exit 1 ;;
 esac
+[ -z "$incomplete" ] || exit 1  # The SSH server isn't fully set up (said above)

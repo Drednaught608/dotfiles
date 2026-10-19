@@ -1,5 +1,6 @@
 # Bash only: other readline programs (python, psql, gdb) read this file too
 $if Bash
+"\C-d": "\C-e\C-u exit\C-m"
 "\C-l": "\C-e\C-u clear\C-m"
 "\C-g": "\C-e\C-u git_diff\C-m"
 "\C-h": "\C-e\C-u git_log\C-m"
