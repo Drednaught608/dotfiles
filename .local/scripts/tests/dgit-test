@@ -3,11 +3,21 @@
 # touches your real $HOME or global git config. Run it with: dgit test, which
 # makes that temp dir, and tidies up after this however it stops.
 
+# dgit runs with the Bash running this ($BASH), not whichever its #! line finds,
+# so "/bin/bash dgit test" tests it under macOS's built-in Bash 3.2.
 D=$(cd "$(dirname "$0")/.." && pwd)/dgit
 T=$DGIT_TEST_DIR
 [ -n "$T" ] && [ -d "$T" ] || { echo "dgit-test: run it with: dgit test" >&2; exit 2; }
-# Sections are timed with Bash's own clock, which older Bash (macOS's built-in 3.2) lacks
-[ -n "$EPOCHREALTIME" ] || { echo "dgit-test: needs Bash 5 or newer; this is $BASH_VERSION" >&2; exit 2; }
+# clock: the time in microseconds, in $now, for timing sections. Bash 5 has a
+# clock built in; older Bash (macOS's 3.2) only counts whole seconds, so perl
+# (which macOS has) gives finer ones, and with no perl, whole seconds it is.
+if [ -n "$EPOCHREALTIME" ]; then
+  clock() { now=${EPOCHREALTIME//[!0-9]/}; }
+elif command -v perl > /dev/null; then
+  clock() { now=$(perl -MTime::HiRes=time -e 'printf "%.0f", time * 1e6'); }
+else
+  clock() { now=$((SECONDS * 1000000)); }
+fi
 export GIT_CONFIG_GLOBAL=$T/gitconfig GIT_CONFIG_NOSYSTEM=1
 unset DGIT_DIR XDG_DATA_HOME
 git config --global user.name t; git config --global user.email t@t
@@ -21,7 +31,7 @@ echo '*.secret' > "$T/global-ignore"; git config --global core.excludesFile "$T/
 pass=0 fail=0
 ok() { if eval "$2"; then pass=$((pass+1)); else fail=$((fail+1)); fails+="          $1"$'
 '; fi; live; }
-dg() { "$D" "$@" 2>&1; }
+dg() { "$BASH" "$D" "$@" 2>&1; }
 # within <seconds> <command...>: run it, stopping it if it takes longer (timeout(1)
 # isn't on macOS)
 within() {
@@ -49,7 +59,8 @@ nsec=$(grep -c '^section "[^"]' "$0") isec=0  # sections in this file, and how m
 sec= count= sp=0 sf=0 st=0 fails= miscounts=0
 # line <status> <colour> <out of>: the current section's line as it stands now, in $sline
 line() {
-  local now=${EPOCHREALTIME//[!0-9]/} ms  # microseconds
+  local now ms
+  clock
   ms=$(( (now - st) / 1000 ))
   printf -v sline '  %s%s%s  [%0*d/%d]  %-46s %3d/%-3d %3d.%02ds' "$2" "$1" "$c_off" ${#nsec} $((isec + 1)) $nsec \
     "$sec" $((pass - sp)) "$3" $((ms / 1000)) $((ms % 1000 / 10))
@@ -70,7 +81,8 @@ section() {
   elif [ -n "$tty" ]; then
     printf '\r\e[K'  # The end: clear the live line for the summary
   fi
-  sec=$1 count=$2 sp=$pass sf=$fail st=${EPOCHREALTIME//[!0-9]/} fails=
+  clock
+  sec=$1 count=$2 sp=$pass sf=$fail st=$now fails=
   if [ -n "$sec" ] && [[ ! $count =~ ^[0-9]+$ ]]; then
     echo "${c_bad}dgit-test: section \"$sec\" needs its test count, as: section \"$sec\" <count>${c_off}" >&2
     exit 2
@@ -319,9 +331,9 @@ ok "shell alias can't reach it from a subfolder either" '! dg shstat >/dev/null'
 cd "$HOME"
 # A git() wrapper that hands home-dir commands to dgit, exported into the
 # environment, must not make dgit call itself.
-git() { if [ "$PWD" = "$HOME" ]; then "$D" "$@"; else command git "$@"; fi; }
+git() { if [ "$PWD" = "$HOME" ]; then "$BASH" "$D" "$@"; else command git "$@"; fi; }
 export -f git
-ok "exported git() wrapper doesn't recurse" 'within 20 "$D" status -s >/dev/null 2>&1'
+ok "exported git() wrapper doesn't recurse" 'within 20 "$BASH" "$D" status -s >/dev/null 2>&1'
 unset -f git
 # Case-insensitive filesystems: a differently-cased path to home is still home.
 lc=$(printf %s "$HOME" | tr '[:upper:]' '[:lower:]'); uc=$(printf %s "$HOME" | tr '[:lower:]' '[:upper:]')
@@ -345,7 +357,7 @@ section "Edge cases" 9
 git init -q --bare "$T/empty.git"; mkdir "$T/e"
 ok "empty clone succeeds" 'HOME=$T/e dg clone "$T/empty.git" >/dev/null'
 ok "clone extra args rejected" '! HOME=$T/x dg clone "$T/r.git" extra >/dev/null'
-ok "HOME unset rejected" '! env -u HOME "$D" status >/dev/null 2>&1'
+ok "HOME unset rejected" '! env -u HOME "$BASH" "$D" status >/dev/null 2>&1'
 ok "help" 'dg | grep -q "dgit init"'
 ok "--version passes through" 'dg --version | grep -q "git version"'
 mkdir "$T/hlp"

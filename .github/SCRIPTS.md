@@ -36,7 +36,7 @@ It also never overwrites a file you have that the repo doesn't track:
 
 A shell alias (`!...` in `.gitconfig`) runs without the repo, as it could run anything.
 
-`dgit test` runs its test suite against throwaway home folders in a temp folder. It needs Bash 5.
+`dgit test` runs its test suite against throwaway home folders in a temp folder. It runs `dgit` with the Bash you start it with, so on a Mac `/bin/bash ~/.local/scripts/dgit test` tests it under the built-in Bash 3.2. Section times come from Bash 5's clock, or from `perl` on older Bash, or in whole seconds if there's no `perl`.
 
 ## install.sh
 
