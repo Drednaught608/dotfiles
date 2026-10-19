@@ -89,7 +89,7 @@ The keys allowed to log in to a machine over SSH are in [`~/.ssh/authorized_keys
 
 Turning one on sets it to start with the computer, then sets it up as below: key-only, reading your keys. What that installs or turns on:
 
-- **Windows:** the OpenSSH Server feature, its `sshd` service and a firewall rule for port 22.
+- **Windows:** the OpenSSH Server feature, its `sshd` service, and two firewall rules for port 22: from anyone on a Private network (your home network, so you can still connect by its local name if Tailscale is down), and from Tailscale's addresses on any network. Strangers on Public networks, like café Wi-Fi, can't reach it. That relies on your home network being set to Private (Settings > Network & internet > your connection).
 - **macOS:** Remote Login, with `systemsetup`. macOS may want your terminal app to have Full Disk Access for that (System Settings > Privacy & Security); otherwise turn on Remote Login in System Settings > General > Sharing.
 - **Linux:** the `openssh-server` package (`openssh` on Arch), through `apt`, `dnf` or `pacman`, and its systemd service. Another package manager, or no systemd, is an error that says to install it yourself.
 

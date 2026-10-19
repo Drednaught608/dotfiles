@@ -397,10 +397,15 @@ if (-not (Get-Service sshd -ErrorAction SilentlyContinue)) {
 }
 Set-Service sshd -StartupType Automatic
 Start-Service sshd
-if (-not (Get-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue)) {
-  New-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -DisplayName 'OpenSSH Server (sshd)' -Enabled True `
-    -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 | Out-Null
-}
+# Port 22: from anyone on a Private network (home), and from Tailscale's addresses on
+# any network (Windows often counts Tailscale's adapter as Public); not from strangers
+# on Public networks. Made afresh each time, replacing the server's own allow-all rule.
+Remove-NetFirewallRule -Name 'OpenSSH-Server-In-TCP', 'OpenSSH-Server-In-TCP-Tailscale' -ErrorAction SilentlyContinue
+New-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -DisplayName 'OpenSSH Server (sshd): home network' `
+  -Profile Private -Direction Inbound -Protocol TCP -LocalPort 22 -Action Allow | Out-Null
+New-NetFirewallRule -Name 'OpenSSH-Server-In-TCP-Tailscale' -DisplayName 'OpenSSH Server (sshd): Tailscale' `
+  -Profile Any -RemoteAddress '100.64.0.0/10', 'fd7a:115c:a1e0::/48' `
+  -Direction Inbound -Protocol TCP -LocalPort 22 -Action Allow | Out-Null
 EOF
     as_admin "$step
 $(win_steps "${server_steps[@]}")"
