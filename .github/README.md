@@ -64,6 +64,26 @@ Close every Windows Terminal window and open it again after linking; opening ano
 
 It also installs the fonts in `~/.config/fonts` (`*.ttf`, `*.otf`) for your user only, which needs no administrator rights, so gVim can use them too. On Windows each is copied into your own fonts folder and registered under `HKCU`, the way Windows does when you choose "Install". On Linux they go in `~/.local/share/fonts` and fontconfig's cache is refreshed; on macOS they go in `~/Library/Fonts`. There, with no Windows Terminal, installing the fonts is all `update_terminal` does. Fonts already installed are left alone. To use another font, put its file in the folder, run `update_terminal`, and set it in the settings.
 
+## Snippets
+
+`snip` keeps files you start projects with, in `~/.config/snip`: each folder there is a snippet, and its files are what it creates. Anything with a `/` is a path instead, naming one file or folder in there: `makefile/Makefile`, or `./LICENSE` for a file at the top of `~/.config/snip`. Files at the top aren't snippets, so `snip` doesn't list them, but `snip .` does.
+
+```bash
+snip                                  # list your snippets (-l, --list)
+snip .                                # list everything at the top of ~/.config/snip, files too
+snip -l makefile/src                  # list what's in a snippet, or a folder in it, like ls
+snip makefile                         # copy the makefile snippet's files here
+snip makefile/Makefile                # copy just that file (or folder) here; ./LICENSE for one at the top
+snip makefile --add Makefile build.sh # add files (or folders) to it, making it if new (-a)
+snip makefile/src --add main.c        # add them to that folder instead; . for the top
+snip makefile --delete                # delete it (-d)
+snip makefile/build.sh --delete       # delete just that file or folder
+snip . --delete                       # delete everything in ~/.config/snip, after asking
+snip --track                          # stage ~/.config/snip in dgit, to commit (-t)
+```
+
+Nothing is overwritten unless you add `-f` (`--force`), as in `snip makefile -f` or `snip -f makefile --add Makefile`. Copying skips each file that's already in the current directory and copies the rest, then lists what it `Skipped:` and `Created:`. `--add` won't replace a file or folder that's already there. With `-f`, both replace what's there. The snippets are part of the dotfiles, but `--add` and `--delete` only change the files; run `snip --track` when you want to commit them. It stages every file in `~/.config/snip` in `dgit`, including any a snippet's own `.gitignore` would ignore (since that's part of the snippet), with executable files as executable, and the removal of any snippets you've deleted.
+
 ## Usage
 
 ```bash

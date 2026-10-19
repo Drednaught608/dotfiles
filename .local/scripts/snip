@@ -1,0 +1,261 @@
+#!/usr/bin/env bash
+# snip - copy saved snippets into the current directory. Each folder in
+# ~/.config/snip is a snippet. A <path> has a / and names one file or folder in
+# there instead: makefile/Makefile, or ./file for one at the top.
+#
+#   snip                          list your snippets (-l)
+#   snip -l <path>                list what's in a folder (snip . lists the top)
+#   snip <name>                   copy that snippet's files here
+#   snip <path>                   copy just that file or folder here
+#   snip <name|path> -a <file>... add files or folders to it, making it if new
+#   snip <name|path> -d           delete it (snip . -d: everything, after asking)
+#   snip -t                       stage ~/.config/snip in dgit, ready to commit
+#   snip -h                       show this
+#
+# Long forms: --list, --add, --delete, --track, --help. Nothing is overwritten
+# unless you add -f (--force): copying skips files that are already here, and
+# -a won't replace what's already there. --track stages every snippet file,
+# even ignored ones, executables as executable, and removals of deleted ones.
+
+DIR=$HOME/.config/snip
+SHOW="~${DIR#"$HOME"}"  # the path as you'd type it, for messages
+DGIT=$HOME/.local/scripts/dgit
+
+die() { echo "snip: $*" >&2; exit 1; }
+usage() { echo "snip: $*; see: snip --help" >&2; exit 2; }
+
+# list [<name>[/<path>]]: with no path, your snippets; with one, what's in that
+# folder of a snippet, folders marked with a trailing / (as ls -p shows them).
+list() {
+  local p=${1-} d e names=()
+  if [ -z "$p" ]; then
+    for d in "$DIR"/*/; do
+      [ -d "$d" ] && names+=("$(basename "$d")")
+    done
+    if (( ${#names[@]} == 0 )); then
+      echo "No snippets yet; add one with: snip <name> --add <file>..."
+    else
+      printf '%s\n' "${names[@]}"
+    fi
+    return
+  fi
+  case /$p/ in
+    //* | */../*) die "'$p' isn't a path in your snippets: use one like makefile/src" ;;
+  esac
+  [ -e "$DIR/$p" ] || die "no '$p' in your snippets (see: snip --list)"
+  if [ ! -d "$DIR/$p" ]; then
+    echo "$p"  # A file: like ls, just its name
+    return
+  fi
+  shopt -s dotglob nullglob
+  for e in "$DIR/$p"/*; do
+    if [ -d "$e" ]; then echo "${e##*/}/"; else echo "${e##*/}"; fi
+  done
+}
+
+# track: stage every snippet file in dgit, and the removal of deleted ones.
+# dgit add names each file, so no ignore rule (dgit's, or a snippet's own
+# .gitignore) can leave one out.
+track() {
+  local f plain=() executable=()
+  if [ -d "$DIR" ]; then
+    while IFS= read -r -d '' f; do
+      if [ -x "$f" ]; then executable+=("$f"); else plain+=("$f"); fi
+    done < <(find "$DIR" \( -type f -o -type l \) -print0)
+  fi
+  (( ${#plain[@]} == 0 )) || "$DGIT" add -- "${plain[@]}" || exit
+  (( ${#executable[@]} == 0 )) || "$DGIT" add --chmod=+x -- "${executable[@]}" || exit
+  # Tracked files that are gone (a deleted snippet): stage their removal
+  if [ -n "$("$DGIT" ls-files -- "$DIR")" ]; then
+    "$DGIT" add --update -- "$DIR" || exit
+  elif (( ${#plain[@]} + ${#executable[@]} == 0 )); then
+    echo "No snippets to track yet; add one with: snip <name> --add <file>..."
+    return
+  fi
+  echo "Staged $SHOW in dgit ($(( ${#plain[@]} + ${#executable[@]} )) files), ready to commit"
+}
+
+# copy <folder> <find arguments>...: copy what find lists in <folder> here, file
+# by file, so a folder that's already here gets just the files it's missing.
+# Without -f, files already here are skipped; with it, they're replaced.
+copy() {
+  local from=$1 rel src p skipped=() replaced=() created=()
+  shift
+  while IFS= read -r -d '' rel; do
+    rel=${rel#./}
+    src=$from/$rel
+    # A file here where the snippet has a folder (on Windows and macOS, even
+    # one named in another case): skip what goes in it, or with -f replace it
+    p=$rel
+    while [[ $p == */* ]]; do
+      p=${p%/*}
+      if { [ -e "$p" ] || [ -L "$p" ]; } && [ ! -d "$p" ]; then
+        if [ -z "$force" ]; then
+          skipped+=("$rel")
+          continue 2
+        fi
+        rm -f -- "$p" || die "could not replace $p"
+        replaced+=("$p")
+      fi
+    done
+    if [ -d "$src" ] && [ ! -L "$src" ] && [ -d "$rel" ]; then
+      continue  # An empty folder that's already here
+    fi
+    if [ -e "$rel" ] || [ -L "$rel" ]; then
+      if [ -z "$force" ]; then
+        skipped+=("$rel")
+        continue
+      fi
+      if [ -d "$rel" ] && [ ! -L "$rel" ]; then
+        die "can't replace the folder $rel with the snippet's file"
+      fi
+      rm -f -- "$rel" || die "could not replace $rel"
+      replaced+=("$rel")
+    else
+      created+=("$rel")
+    fi
+    mkdir -p -- "$(dirname -- "$rel")" && cp -R -- "$src" "$rel" || die "could not copy $rel"
+  done < <(cd "$from" && find "$@" \( -type f -o -type l -o -type d -empty \) -print0 | sort -z)
+  if (( ${#skipped[@]} )); then echo "Skipped: ${skipped[*]}"; fi
+  if (( ${#replaced[@]} )); then echo "Replaced: ${replaced[*]}"; fi
+  if (( ${#created[@]} )); then echo "Created: ${created[*]}"; fi
+}
+
+# -f (--force) can go anywhere, so take it out first.
+force= args=()
+for a; do
+  case $a in
+    -f | --force) force=1 ;;
+    *) args+=("$a") ;;
+  esac
+done
+set -- "${args[@]}"
+
+# Arguments: a name, then an action; or a flag by itself.
+case ${1-} in
+  -l | --list | -t | --track | -h | --help | '')
+    [ -z "$force" ] || usage "-f only goes with copying or --add"
+    ;;
+esac
+case ${1-} in
+  '' | -l | --list) (( $# <= 2 )) || usage "$1 takes at most one path"; list "${2-}"; exit ;;
+  -t | --track) (( $# == 1 )) || usage "$1 takes no other arguments"; track; exit ;;
+  -h | --help) sed -n '2,18s/^# \{0,1\}//p' "$0"; exit ;;
+  -*) usage "unknown option '$1'" ;;
+esac
+name=$1
+shift
+while [[ $name == ?*/ ]]; do name=${name%/}; done  # makefile/ is makefile
+case /$name/ in
+  //* | */../* | ?*/./) die "'$name' isn't a path in your snippets: use one like makefile/Makefile, or ./file" ;;
+esac
+# What it names: the top of ~/.config/snip, a path in it, or a snippet
+case $name in
+  .) kind=top where=$SHOW target=$DIR ;;
+  */*)
+    kind=path where=$name target=$DIR/$name
+    parent=${name%/*}
+    if [ "$parent" = . ]; then see="snip ."; else see="snip -l $parent"; fi
+    ;;
+  .*) die "'$name' isn't a snippet name: use a plain name, like makefile, or ./$name for a file at the top" ;;
+  *)
+    kind=snippet where="snippet $name" target=$DIR/$name
+    if [ -e "$target" ] && [ ! -d "$target" ]; then
+      die "'$name' is a file at the top of $SHOW, not a snippet; name it as ./$name"
+    fi
+    ;;
+esac
+
+case ${1-} in
+  '')
+    case $kind in
+      top)  # Nothing can be named ., so list it, as snip --list . does
+        [ -z "$force" ] || usage "-f only goes with copying or --add"
+        list .
+        ;;
+      path)  # Just that file or folder, by its own name
+        [ -e "$target" ] || [ -L "$target" ] || die "no '$name' in your snippets (see: $see)"
+        copy "$(dirname -- "$target")" "./${name##*/}"
+        ;;
+      snippet)  # The snippet's files
+        [ -d "$target" ] || die "no snippet '$name' (see: snip --list)"
+        shopt -s dotglob nullglob
+        items=("$target"/*)
+        (( ${#items[@]} )) || die "snippet '$name' is empty"
+        copy "$target" . -mindepth 1
+        ;;
+    esac
+    ;;
+
+  -a | --add)
+    shift
+    (( $# )) || usage "--add needs at least one file"
+    if [ -e "$target" ] && [ ! -d "$target" ]; then
+      die "'$name' is a file, so nothing can be added to it"
+    fi
+    files=() bases=" "
+    for f; do
+      while [[ $f == ?*/ ]]; do f=${f%/}; done  # A folder given as dir/ is added as dir
+      [ -e "$f" ] || die "no such file: $f"
+      base=${f##*/}
+      case $base in
+        '' | . | ..) die "can't add '$f': name the file or folder itself" ;;
+      esac
+      [[ $bases != *" $base "* ]] || die "two of these are named $base; nothing was added"
+      bases+="$base "
+      if [ -z "$force" ] && [ -e "$target/$base" ]; then
+        die "$where already has $base (replace it with -f); nothing was added"
+      fi
+      files+=("$f")
+    done
+    new=
+    if [ ! -d "$target" ] && [ "$kind" != top ]; then
+      if [ "$kind" = snippet ]; then new="new snippet $name"; else new="new folder $name"; fi
+    fi
+    mkdir -p -- "$target" || die "could not make $SHOW/$name"
+    added=() replaced=()
+    for f in "${files[@]}"; do
+      base=${f##*/}
+      if [ -e "$target/$base" ] || [ -L "$target/$base" ]; then
+        rm -rf -- "${target:?}/$base" || die "could not replace $base in $where"
+        replaced+=("$base")
+      else
+        added+=("$base")
+      fi
+      cp -R -- "$f" "$target/$base" || die "could not add $f"
+    done
+    if (( ${#replaced[@]} )); then echo "Replaced in $where: ${replaced[*]}"; fi
+    if (( ${#added[@]} )); then echo "Added to ${new:-$where}: ${added[*]}"; fi
+    ;;
+
+  -d | --delete)
+    [ -z "$force" ] || usage "-f only goes with copying or --add"
+    (( $# == 1 )) || usage "--delete takes no other arguments"
+    case $kind in
+      top)  # Everything in it: the one delete that asks first
+        shopt -s dotglob nullglob
+        items=("$DIR"/*)
+        if (( ${#items[@]} == 0 )); then
+          echo "$SHOW is already empty"
+          exit
+        fi
+        [ -t 0 ] || die "deleting everything in $SHOW asks first, so run it in a terminal"
+        count=$(find "$DIR" -type f | wc -l)
+        read -r -p "Delete everything in $SHOW ($((count)) file$([ "$count" -eq 1 ] || echo s))? [y/N] " answer
+        case $answer in
+          [yY] | [yY][eE][sS]) ;;
+          *) echo "Kept everything."; exit ;;
+        esac
+        rm -rf -- "${items[@]}" || die "could not delete everything in $SHOW"
+        echo "Deleted everything in $SHOW"
+        exit
+        ;;
+      path) [ -e "$target" ] || [ -L "$target" ] || die "no '$name' in your snippets (see: $see)" ;;
+      snippet) [ -d "$target" ] || die "no snippet '$name' (see: snip --list)" ;;
+    esac
+    rm -rf -- "${target:?}" || die "could not delete $SHOW/$name"
+    echo "Deleted $name"
+    ;;
+
+  *) usage "unknown option '$1'" ;;
+esac
