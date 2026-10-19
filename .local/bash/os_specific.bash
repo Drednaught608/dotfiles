@@ -64,6 +64,9 @@ if [[ $OSTYPE == msys* || $OSTYPE == cygwin* ]]; then
     # waits for an end that never comes, frozen. So take a paste as plain typing here.
     if [ -n "$SSH_CONNECTION" ]; then
         bind 'set enable-bracketed-paste off'
+        # Windows' SSH server clears the screen as you log in, but whether that also clears
+        # the scrollback depends on the Windows version; clear both, the same everywhere
+        clear
     fi
 
     # Windows' own Vim (gVim or console) starts its terminal's Bash in a folder written the

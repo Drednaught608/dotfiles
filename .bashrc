@@ -1,3 +1,7 @@
+# Commands run over SSH can read this too: give them PATH, then stop
+export PATH="$HOME/.local/bin:$HOME/.local/scripts:$PATH"
+[[ $- == *i* ]] || return 0
+
 # Exports / Settings
 bind 'set bell-style none'
 bind 'set page-completions off'
@@ -7,7 +11,6 @@ export HISTFILESIZE=
 export HISTCONTROL=ignoreboth
 export PROMPT_COMMAND='history -a'
 export HISTIGNORE='history:clear:cls:ls:la:ll:cd:pwd:exit:logout:bg:fg:top:htop:uptime:df:free:micro:nano:vi:vim:nvim'
-export PATH="$HOME/.local/bin:$HOME/.local/scripts:$PATH"
 
 # Aliases
 alias cls='clear'
