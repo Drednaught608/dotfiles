@@ -66,7 +66,9 @@
     filetype on
     filetype indent on
     filetype plugin on
-    syntax on
+    if !exists('g:syntax_on')  " Already on from a system vimrc (Alpine's): turning it on again reloads it
+        syntax on
+    endif
     colorscheme habamax
     highlight ColorColumn ctermbg=gray
     highlight CursorLine cterm=none
@@ -189,7 +191,6 @@
         autocmd FileType gitcommit setlocal noswapfile
         autocmd SwapExists COMMIT_EDITMSG,MERGE_MSG,SQUASH_MSG,TAG_EDITMSG let v:swapchoice = 'd'
         autocmd FileType gitcommit startinsert! " At the end of the line, as A does: after an amend's message
-        autocmd FileType gitcommit let b:coc_enabled = 0
         autocmd FileType gitcommit setlocal spell spelllang=en_us
         " Spelling in plain colors: the theme's undercurl is one many terminals can't draw
         autocmd FileType gitcommit highlight SpellBad cterm=bold,underline ctermfg=203 ctermbg=NONE gui=bold,underline guifg=#ff5f5f guibg=NONE guisp=NONE
@@ -296,8 +297,10 @@
 
 " Misc. {{{
 
-    " Custom plugin settings sourced if it exists
-    if filereadable(expand("~/.vimrc_plugins"))
+    " Custom plugin settings sourced if it exists, and this Vim is new enough for all of
+    " it: 8.0.1394, for vim-highlightedyank (TextYankPost), the newest any plugin needs;
+    " its Hex Colors needs 7.4.1685. An older Vim quietly goes without.
+    if has('patch-8.0.1394') && filereadable(expand("~/.vimrc_plugins"))
         source ~/.vimrc_plugins
     endif
 

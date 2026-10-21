@@ -36,22 +36,12 @@
         endif
     endif
 
-    " Download preferred habamax.vim colors theme
-    let data_dir = has('nvim') ? stdpath('data') . '/site' : expand('~/.vim')
-    if empty(glob(data_dir . '/colors/habamax.vim'))
-        silent execute '!curl -sfLo '.data_dir.'/colors/habamax.vim --create-dirs  https://raw.githubusercontent.com/Drednaught608/vim-habamax/refs/heads/master/colors/habamax.vim'
-        colorscheme habamax
-        highlight Cursor guifg=#222222 guibg=#ffffff
-    endif
-
     call plug#begin()
 
-    Plug 'neoclide/coc.nvim', {'branch': 'release'}
     Plug 'Raimondi/delimitMate'
     Plug 'junegunn/goyo.vim'
     Plug 'markonm/traces.vim'
     Plug 'tpope/vim-commentary'
-    Plug 'ap/vim-css-color'
     Plug 'tpope/vim-dispatch'
     Plug 'tpope/vim-fugitive'
     Plug 'airblade/vim-gitgutter'
@@ -71,38 +61,6 @@
 " Settings / Definitions {{{
 
     " Settings
-    if !empty(glob(plugin_dir . "coc.nvim"))
-        let g:coc_data_home = '~/.config/coc'
-        let g:coc_config_home = '~/.vim'
-        " Confirm autocomplete
-        inoremap <silent><expr> <CR> coc#pum#visible() ? coc#pum#confirm()
-                                      \: "\<C-g>u\<CR>\<c-r>=coc#on_enter()\<CR>"
-        inoremap <silent><expr> <TAB> coc#pum#visible() ? coc#pum#confirm()
-                                      \: "\<C-g>u\<TAB>\<c-r>=coc#on_enter()\<CR>"
-        " Symbol rename
-        noremap <leader>gn <Plug>(coc-rename)
-        " Diagnostics navigation
-        nmap <silent> [g <Plug>(coc-diagnostic-prev)
-        nmap <silent> ]g <Plug>(coc-diagnostic-next)
-        " Use <c-space> to trigger completion
-        if has('nvim')
-          inoremap <silent><expr> <c-space> coc#refresh()
-        else
-          inoremap <silent><expr> <c-@> coc#refresh()
-          inoremap <silent><expr> <c-space> coc#refresh()
-        endif
-        " Documentation
-        nnoremap <silent> <Leader>k :call ShowDocumentation()<CR>
-        " Documentation window scroll
-        if has('nvim-0.4.0') || has('patch-8.2.0750')
-            nnoremap <silent><nowait><expr> <C-f> coc#float#has_scroll() ? coc#float#scroll(1) : "\<C-f>"
-            nnoremap <silent><nowait><expr> <C-b> coc#float#has_scroll() ? coc#float#scroll(0) : "\<C-b>"
-            inoremap <silent><nowait><expr> <C-f> coc#float#has_scroll() ? "\<c-r>=coc#float#scroll(1)\<cr>" : "\<Right>"
-            inoremap <silent><nowait><expr> <C-b> coc#float#has_scroll() ? "\<c-r>=coc#float#scroll(0)\<cr>" : "\<Left>"
-            vnoremap <silent><nowait><expr> <C-f> coc#float#has_scroll() ? coc#float#scroll(1) : "\<C-f>"
-            vnoremap <silent><nowait><expr> <C-b> coc#float#has_scroll() ? coc#float#scroll(0) : "\<C-b>"
-        endif
-    endif
     if !empty(glob(plugin_dir . "vim-fugitive"))
         cabbrev git Git
     endif
@@ -148,17 +106,109 @@
 
 "}}}
 
-" Functions {{{
+" Hex Colors {{{
 
-    " Show LS documentation if available
-    if !empty(glob(plugin_dir . "coc.nvim"))
-        function! ShowDocumentation()
-            if CocAction('hasProvider', 'hover')
-                call CocActionAsync('doHover')
-            else
-                call feedkeys('K', 'in')
+    " Hex colors (#rrggbb) shown in their own color, as the background behind the code,
+    " with black or white text, whichever reads better. Like vim-css-color, but cheap:
+    " a window's lines in view are only scanned again when its view or text has changed,
+    " which a cursor move checks in two comparisons, and while typing only the line
+    " being typed on is. The colors are matches, which show through 'cursorline' and
+    " stay under a Visual selection. Needs Vim 7.4.1685 (matchstrpos()).
+
+    let s:hex_defined = get(s:, 'hex_defined', {})  " Colors given a highlight so far
+
+    " The highlight for a color (6 lowercase digits): exact in GUIs and terminals with
+    " true color, the nearest of the 256 colors otherwise
+    function! s:HexDefine(hex) abort
+        let r = str2nr(a:hex[0 : 1], 16)
+        let g = str2nr(a:hex[2 : 3], 16)
+        let b = str2nr(a:hex[4 : 5], 16)
+        let dark = (r * 299 + g * 587 + b * 114) / 1000 < 128
+        let cterm = 16 + 36 * ((r * 5 + 127) / 255) + 6 * ((g * 5 + 127) / 255) + (b * 5 + 127) / 255
+        execute 'highlight HexColor_' . a:hex . ' guibg=#' . a:hex . ' guifg=' . (dark ? '#ffffff' : '#000000')
+            \ . ' ctermbg=' . cterm . ' ctermfg=' . (dark ? 231 : 16)
+        let s:hex_defined[a:hex] = 1
+    endfunction
+
+    " Remove this window's matches on lines first to last, or on every line
+    function! s:HexClear(...) abort
+        let by_line = get(w:, 'hex_by_line', {})
+        for lnum in a:0 ? range(a:1, a:2) : keys(by_line)
+            for id in get(by_line, lnum, [])
+                silent! call matchdelete(id)
+            endfor
+            silent! call remove(by_line, lnum)
+        endfor
+        let w:hex_by_line = by_line
+    endfunction
+
+    " Color the codes on lines first to last, replacing their earlier matches
+    function! s:HexScanLines(first, last) abort
+        call s:HexClear(a:first, a:last)
+        if &buftype !=# ''  " Files only: not terminals, help, quickfix and the like
+            return
+        endif
+        for lnum in range(a:first, a:last)
+            let text = getline(lnum)
+            if stridx(text, '#') < 0
+                continue
             endif
-        endfunction
-    endif
+            let found = {}  " Each color's places on this line: [line, column, length]
+            let start = 0
+            while 1
+                let [code, from, to] = matchstrpos(text, '#\x\{6}\>', start)
+                if from < 0
+                    break
+                endif
+                let hex = tolower(code[1 :])
+                if !has_key(s:hex_defined, hex)
+                    call s:HexDefine(hex)
+                endif
+                let found[hex] = add(get(found, hex, []), [lnum, from + 1, to - from])
+                let start = to
+            endwhile
+            let ids = []
+            for [hex, places] in items(found)
+                for i in range(0, len(places) - 1, 8)  " matchaddpos() takes 8 places at a time
+                    call add(ids, matchaddpos('HexColor_' . hex, places[i : i + 7], 11))
+                endfor
+            endfor
+            if !empty(ids)
+                let w:hex_by_line[lnum] = ids
+            endif
+        endfor
+    endfunction
+
+    " Scan again only what has changed since this window's last scan: in Insert mode,
+    " with the view and the number of lines the same, just the line being typed on (the
+    " other lines' colors haven't moved); otherwise every line in view
+    function! s:HexUpdate() abort
+        let view = [bufnr('%'), line('w0'), line('w$'), b:changedtick]
+        let last = get(w:, 'hex_view', [])
+        if view == last
+            return
+        endif
+        if mode() =~# '^[iR]' && len(last) == 4 && view[0 : 2] == last[0 : 2] && line('$') == w:hex_lines
+            call s:HexScanLines(line('.'), line('.'))
+        else
+            call s:HexClear()
+            call s:HexScanLines(view[1], view[2])
+        endif
+        let w:hex_view = view
+        let w:hex_lines = line('$')
+    endfunction
+
+    " Colorscheme changes clear highlights, so give the colors theirs back
+    function! s:HexRedefine() abort
+        for hex in keys(s:hex_defined)
+            call s:HexDefine(hex)
+        endfor
+    endfunction
+
+    augroup HexColors
+        autocmd!
+        autocmd BufWinEnter,WinEnter,CursorMoved,CursorMovedI,TextChanged,TextChangedI,CursorHold * call s:HexUpdate()
+        autocmd ColorScheme * call s:HexRedefine()
+    augroup END
 
 "}}}
