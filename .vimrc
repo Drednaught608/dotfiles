@@ -4,7 +4,6 @@
     " Settings
     set nocompatible
     set encoding=utf-8
-    set belloff=all
     set laststatus=2
     set showcmd
     set ruler
@@ -38,7 +37,6 @@
     set wildmode=list:longest
     set wildignore=*.docx,*.jpg,*.png,*.gif,*.pdf,*.pyc,*.exe,*.flv,*.img,*.xlsx
     set runtimepath=~/.vim,$VIM/vimfiles,$VIMRUNTIME,$VIM/vimfiles/after,~/.vim/after
-    set packpath=~/.vim,$VIM/vimfiles,$VIMRUNTIME,$VIM/vimfiles/after,~/.vim/after
     set omnifunc=syntaxcomplete#Complete
     set grepprg=git\ grep\ -n\ --column
     set grepformat=%f:%l:%c:%m,%f:%l%c%m,%f\ \ %l%c%m
@@ -49,12 +47,14 @@
     if executable("rg")
         set grepprg=rg\ --vimgrep
     endif
-    if !has('macunix')
-        set termguicolors
-    endif
     if &shell ==# "sh"
         set shell=bash
     endif
+
+    " Options older Vims don't have, set where they exist
+    if exists('+belloff') | set belloff=all | endif
+    if exists('+packpath') | set packpath=~/.vim,$VIM/vimfiles,$VIMRUNTIME,$VIM/vimfiles/after,~/.vim/after | endif
+    if exists('+termguicolors') && !has('macunix') | set termguicolors | endif
 
     " Definitions & Misc.
     let mapleader = " "
@@ -66,7 +66,7 @@
     filetype on
     filetype indent on
     filetype plugin on
-    if !exists('g:syntax_on')  " Already on from a system vimrc (Alpine's): turning it on again reloads it
+    if !exists('g:syntax_on')
         syntax on
     endif
     colorscheme habamax
@@ -147,17 +147,19 @@
     noremap <C-j> <C-w>j
     noremap <C-k> <C-w>k
     noremap <C-l> <C-w>l
-    tnoremap <C-j> <C-w>j
-    tnoremap <C-k> <C-w>k
-    tnoremap <silent> <PageDown> <C-w>:silent bnext<CR>
-    tnoremap <silent> <PageUp> <C-w>:silent bprevious<CR>
-    tnoremap <silent> <End> <C-w>:silent bprevious<CR>
-    tnoremap <silent> <S-right> <C-w>:silent bnext<CR>
-    tnoremap <silent> <S-left> <C-w>:silent bprevious<CR>
-    tnoremap <silent> <C-right> <C-w>:silent tabnext<CR>
-    tnoremap <silent> <C-left> <C-w>:silent tabprevious<CR>
-    tnoremap <C-n> <C-w>N
-    tnoremap <esc> <C-w>N
+    if has('terminal')
+        tnoremap <C-j> <C-w>j
+        tnoremap <C-k> <C-w>k
+        tnoremap <silent> <PageDown> <C-w>:silent bnext<CR>
+        tnoremap <silent> <PageUp> <C-w>:silent bprevious<CR>
+        tnoremap <silent> <End> <C-w>:silent bprevious<CR>
+        tnoremap <silent> <S-right> <C-w>:silent bnext<CR>
+        tnoremap <silent> <S-left> <C-w>:silent bprevious<CR>
+        tnoremap <silent> <C-right> <C-w>:silent tabnext<CR>
+        tnoremap <silent> <C-left> <C-w>:silent tabprevious<CR>
+        tnoremap <C-n> <C-w>N
+        tnoremap <esc> <C-w>N
+    endif
     nnoremap <C-down> :m .+1<CR>==
     nnoremap <C-up> :m .-2<CR>==
     vnoremap <C-down> :m '>+1<CR>gv=gv
@@ -248,12 +250,12 @@
         if args[0] ==# ""
             below terminal ++rows=10 ++close bash
         elseif match(args[0], "^/") == 0
-            execute 'below terminal ++rows=10 ++close bash --rcfile ~/.bashrc -ci "cd ' .. args[0] .. '; exec bash"'
+            execute 'below terminal ++rows=10 ++close bash --rcfile ~/.bashrc -ci "cd ' . args[0] . '; exec bash"'
         elseif match(args[0], "^\\.") == 0
-            let path = expand("%:p:h") .. "/" .. args[0]
-            execute 'below terminal ++rows=10 ++close bash --rcfile ~/.bashrc -ci "cd ' .. path .. '; exec bash"'
+            let path = expand("%:p:h") . "/" . args[0]
+            execute 'below terminal ++rows=10 ++close bash --rcfile ~/.bashrc -ci "cd ' . path . '; exec bash"'
         else
-            execute 'below terminal ++rows=10 bash --rcfile ~/.bashrc -ci "' .. args[0] .. '"'
+            execute 'below terminal ++rows=10 bash --rcfile ~/.bashrc -ci "' . args[0] . '"'
         endif
         echo
     endfunction
@@ -298,8 +300,7 @@
 " Misc. {{{
 
     " Custom plugin settings sourced if it exists, and this Vim is new enough for all of
-    " it: 8.0.1394, for vim-highlightedyank (TextYankPost), the newest any plugin needs;
-    " its Hex Colors needs 7.4.1685. An older Vim quietly goes without.
+    " it: 8.0.1394, for vim-highlightedyank (TextYankPost), the newest any plugin needs.
     if has('patch-8.0.1394') && filereadable(expand("~/.vimrc_plugins"))
         source ~/.vimrc_plugins
     endif

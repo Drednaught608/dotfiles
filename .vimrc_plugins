@@ -179,16 +179,32 @@
         endfor
     endfunction
 
-    " Scan again only what has changed since this window's last scan: in Insert mode,
-    " with the view and the number of lines the same, just the line being typed on (the
-    " other lines' colors haven't moved); otherwise every line in view
+    " Scan again only what has changed since this window's last scan:
+    " - only scrolled (the same text): the lines that came into view, dropping the
+    "   colors of those that left. Lines still in view keep theirs untouched, so Vim
+    "   needn't redraw them, with syntax highlighting, the slow part on a slow machine.
+    " - typing in Insert mode, with the view and the number of lines the same: just
+    "   the line being typed on (the other lines' colors haven't moved)
+    " - anything else: every line in view
     function! s:HexUpdate() abort
         let view = [bufnr('%'), line('w0'), line('w$'), b:changedtick]
         let last = get(w:, 'hex_view', [])
         if view == last
             return
         endif
-        if mode() =~# '^[iR]' && len(last) == 4 && view[0 : 2] == last[0 : 2] && line('$') == w:hex_lines
+        if len(last) == 4 && view[0] == last[0] && view[3] == last[3]
+            " The parts of the old view above and below the new one, then the reverse
+            for [first, final] in [[last[1], min([last[2], view[1] - 1])], [max([last[1], view[2] + 1]), last[2]]]
+                if first <= final
+                    call s:HexClear(first, final)
+                endif
+            endfor
+            for [first, final] in [[view[1], min([view[2], last[1] - 1])], [max([view[1], last[2] + 1]), view[2]]]
+                if first <= final
+                    call s:HexScanLines(first, final)
+                endif
+            endfor
+        elseif mode() =~# '^[iR]' && len(last) == 4 && view[0 : 2] == last[0 : 2] && line('$') == w:hex_lines
             call s:HexScanLines(line('.'), line('.'))
         else
             call s:HexClear()
