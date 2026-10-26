@@ -124,6 +124,12 @@
     nnoremap <silent> <Leader>Q :qall!<CR>
     nnoremap <silent> <Leader>c :call ToggleQuickFix()<CR>
     nnoremap <silent> <Leader>C :cclose<CR>:silent cfdo bdelete<CR>:silent cfirst<CR>:silent bdelete<CR>
+    if !exists(':cfdo')
+        nnoremap <silent> <Leader>C :echo "Vim cfdo is not supported."<CR>
+    endif
+    if !has('terminal')
+        nnoremap <silent> <Leader>t :echo "Vim terminal is not supported."<CR>
+    endif
 
     " Keyboard Mappings
     nnoremap <silent> <esc> :noh<CR>:echo<CR><esc>
@@ -217,10 +223,10 @@
 
     " Quickfix list toggle with preferred settings
     function! ToggleQuickFix()
-        if empty(filter(getwininfo(), 'v:val.quickfix'))
-            copen
-        else
-            cclose
+        let windows = winnr('$')
+        silent cclose
+        if winnr('$') == windows
+            silent copen
         endif
     endfunction
 
@@ -262,6 +268,10 @@
     endfunction
     command! -nargs=? Terminal call BashTerminal(<q-args>)
     command! -nargs=? Term call BashTerminal(<q-args>)
+    if !has('terminal')
+        command! -nargs=? Terminal echo "Vim terminal is not supported."
+        command! -nargs=? Term echo "Vim terminal is not supported."
+    endif
     cabbrev terminal Terminal
     cabbrev term Term
 

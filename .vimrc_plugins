@@ -145,10 +145,11 @@
     function! s:HexClear(...) abort
         let by_line = get(w:, 'hex_by_line', {})
         for lnum in a:0 ? range(a:1, a:2) : keys(by_line)
-            for id in get(by_line, lnum, [])
-                silent! call matchdelete(id)
-            endfor
-            silent! call remove(by_line, lnum)
+            if has_key(by_line, lnum)
+                for id in remove(by_line, lnum)
+                    silent! call matchdelete(id)
+                endfor
+            endif
         endfor
         let w:hex_by_line = by_line
     endfunction
