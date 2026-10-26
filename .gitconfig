@@ -40,4 +40,6 @@
 [alias]
 	alias = ! git config --get-regexp ^alias\\. | sed -e s/^alias\\.// -e s/\\ /\\ =\\ /
 	amend = commit --amend
+	difforig = diff @{u}...HEAD
+	logorig = log --oneline --decorate --left-right --topo-order @{u}...HEAD
 	mode = diff --cached --summary

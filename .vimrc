@@ -28,6 +28,7 @@
     set fileformats=unix,dos
     set history=10000
     set updatetime=300
+    set ttimeout ttimeoutlen=50
     set cursorline
     set colorcolumn=120
     set shortmess-=S

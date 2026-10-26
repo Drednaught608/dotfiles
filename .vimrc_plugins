@@ -49,6 +49,7 @@
     Plug 'machakann/vim-highlightedyank'
     Plug 'RRethy/vim-illuminate'
     Plug 'google/vim-searchindex'
+    Plug 'tpope/vim-sleuth'
     Plug 'tpope/vim-surround'
     Plug 'tpope/vim-vinegar'
 
@@ -90,6 +91,16 @@
         if !isdirectory(g:gutentags_cache_dir)
             call mkdir(g:gutentags_cache_dir, 'p')
         endif
+    endif
+    if !empty(glob(plugin_dir . "vim-sleuth"))
+        " Sleuth sets 'tabstop' to 8 in files mixing tab- and space-indented lines unless
+        " given a default: give it ours (a file's modeline or .editorconfig still wins). All
+        " three are spelled out, as a tabstop alone would imply noexpandtab for new files.
+        augroup SleuthDefaults
+            autocmd!
+            autocmd BufNewFile,BufReadPre * let b:sleuth_defaults = printf('tabstop=%d shiftwidth=%d %sexpandtab',
+                \ &g:tabstop, &g:shiftwidth, &g:expandtab ? '' : 'no')
+        augroup END
     endif
 
 "}}}
