@@ -1,5 +1,8 @@
-# .idea/ folders
+# IDE folders: JetBrains (cmake-build-*/ is CLion's builds), Visual Studio, Xcode's per-user data
 .idea/
+cmake-build-*/
+.vs/
+xcuserdata/
 
 # .vim/ folders
 .vim/
@@ -10,8 +13,15 @@ node_modules/
 .venv/
 venv/
 .tox/
+*.egg-info/
+.ipynb_checkpoints/
 *.pyc
 *.pyo
+
+# Build leftovers: CMake run in the source folder, Terraform's providers
+CMakeFiles/
+CMakeCache.txt
+.terraform/
 
 # Hidden caches (.cache/, .pytest_cache/, .mypy_cache/, .ruff_cache/, .eslintcache, ...)
 .*cache
@@ -23,10 +33,11 @@ venv/
 *~
 *.tmp
 
-# ctags files
+# ctags files: tags files only, in any folder; folders named tags (a site's tag pages) still count
 .ctags
-tags
 tags.temp
+tags
+!tags/
 
 # Mac files
 .DS_Store
@@ -51,6 +62,7 @@ id_ecdsa
 id_ed25519
 *.ppk
 .netrc
+.git-credentials
 .pgpass
 
 # Misc.

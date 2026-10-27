@@ -130,21 +130,29 @@ git_tracked() { # Toggles staging between "every change to tracked files" and em
 
 git_flagged() { # True if path $1 looks like a secret or junk. Sets REPLY to what to list (the path, or the junk
     # folder it is in) and kind to "secret" or "junk"; the caller declares kind as a local.
-    local path=/$1 folder
-    for folder in node_modules __pycache__ .cache .venv venv .pytest_cache .mypy_cache .ruff_cache .tox .idea; do
-        if [[ $path == */"$folder"/* ]]; then
-            REPLY=${path%%"/$folder/"*}/$folder/
-            REPLY=${REPLY#/}
-            kind=junk
-            return
-        fi
+    local part rest=$1 folder=
+    # A file inside a junk folder, at any depth, is listed as that folder (the outermost, if several)
+    while [[ $rest == */* ]]; do
+        part=${rest%%/*} rest=${rest#*/} folder+=$part/
+        case $part in
+            node_modules|__pycache__|.venv|venv|*.egg-info|.ipynb_checkpoints) ;; # JavaScript and Python
+            .terraform|xcuserdata|.vs|.*cache) ;; # Terraform, Xcode, Visual Studio, any hidden cache
+            .idea|cmake-build-*) ;; # JetBrains IDEs (cmake-build-*: CLion's builds)
+            CMakeFiles) ;; # CMake run in the source folder rather than a build folder (and CMakeCache.txt below)
+            *) continue ;;
+        esac
+        REPLY=$folder kind=junk
+        return
     done
     REPLY=$1
     case ${1##*/} in
         .env.example|.env.sample|.env.template|.env.dist) return 1 ;; # Meant to be committed
-        .env|.env.*|*.pem|*.key|*.p12|*.pfx|*.ppk|*.jks|*.keystore|*.kdbx) kind=secret ;;
-        id_rsa|id_dsa|id_ecdsa|id_ed25519|.netrc|.pgpass|.htpasswd|credentials.json|secrets.*) kind=secret ;;
-        .DS_Store|Thumbs.db|desktop.ini|*.pyc|*.pyo|.*.sw?|*~|*.tmp|.*cache) kind=junk ;;
+        .env|.env.*|*.pem|*.key|*.p8|*.p12|*.pfx|*.ppk|*.jks|*.keystore) kind=secret ;; # Keys and certificates
+        id_rsa|id_ecdsa|id_ed25519|.netrc|.git-credentials|credentials.json|secrets.*) kind=secret ;; # SSH keys, logins
+        *.tfstate|*.tfstate.*) kind=secret ;; # Terraform state: secrets in plain text
+        .DS_Store|Thumbs.db|desktop.ini) kind=junk ;; # Left by macOS and Windows
+        *.pyc|*.log|.*cache|tags|CMakeCache.txt) kind=junk ;; # Left by tools
+        .*.sw?|*~|*.tmp|*.bak|*.orig) kind=junk ;; # Left by editors and merges
         *) return 1 ;;
     esac
 }
@@ -261,9 +269,11 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
             for i in "${!added_paths[@]}"; do # Everything flagged, minus the group being kept
                 [ "${added_path_kinds[i]}" = "$keep" ] || remove+=("${added_paths[i]}")
             done
+            # These are all new files, so unstaging them takes them out of the commit. git reset,
+            # not git rm --cached: in a subfolder, git rm refuses a list of paths given this way.
             tree=$(git write-tree) &&
                 printf ':(top,literal)%s\0' "${remove[@]}" |
-                git rm --cached --force --quiet --pathspec-from-file=- --pathspec-file-nul
+                git reset --quiet --pathspec-from-file=- --pathspec-file-nul
         fi && git commit "${message[@]}"
         status=$?
         if (( status )) && [ -n "$tree" ]; then
