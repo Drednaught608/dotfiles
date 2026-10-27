@@ -153,7 +153,7 @@ The snippets are part of the dotfiles, but `--add` and `--delete` only change th
 | Ctrl+O | `git_status` | short status, with the branch and untracked files |
 | Ctrl+T | `git_tracked` | stage every change to tracked files; press again to unstage everything |
 | Ctrl+] | `git_commit` | commit what's staged, or everything if nothing is |
-| Ctrl+G | `git_diff` | all your changes since the last commit, staged or not |
+| Ctrl+G | `git_diff` | what `git_commit` would commit: what's staged, or, if nothing is, all your changes since the last commit, new files included; while resolving conflicts, just the conflicted files |
 | Ctrl+H | `git_log` | recent commits as a graph, as many as fit on screen |
 | Ctrl+/ | `git_branches` | all branches, local and remote, with their upstreams |
 | Ctrl+R | `git_fetch` | fetch, following a change to a remote's default branch |

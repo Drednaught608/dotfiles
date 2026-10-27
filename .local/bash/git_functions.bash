@@ -20,8 +20,50 @@ git_status() {
 git_branches() {
     git branch -avv --color=always | grep -v -- ' -> '
 }
-git_diff() {
-    git --no-pager diff HEAD
+git_diff() { # What git_commit would commit: what's staged, or, if nothing is, every change and new file
+    local record path index status oid= skip= staged= base=HEAD new=() conflicts=()
+    # One call: "# branch.oid <commit>" ("(initial)" before the first commit), then "1 XY ..." /
+    # "2 XY ..." changed (X staged, Y unstaged), "u ..." conflict, "? path" new (a new folder as "folder/")
+    while IFS= read -r -d '' record; do
+        if [ -n "$skip" ]; then skip=; continue; fi # The old path that follows a rename
+        case $record in
+            '# branch.oid '*) oid=${record#'# branch.oid '} ;;
+            [12]' '*)
+                [ "${record:2:1}" = . ] || staged=1
+                [ "${record:0:1}" = 1 ] || skip=1 ;;
+            'u '*) conflicts+=(":(top,literal)${record#* * * * * * * * * * }") ;;
+            '? '*) new+=(":(top,literal)${record:2}") ;;
+        esac
+    done < <(git status --porcelain=v2 -z --branch --untracked-files=normal 2> /dev/null)
+    if [ -z "$oid" ]; then
+        echo "Not in a Git repository."
+        return 1
+    elif (( ${#conflicts[@]} )); then # A merge, rebase or stash stopped at conflicts: just those
+        echo "Conflict resolution in progress: showing only the conflicted files."
+        git --no-pager diff HEAD -- "${conflicts[@]}"
+        return
+    elif [ -n "$staged" ]; then
+        git --no-pager diff --staged
+        return
+    fi
+    # Nothing staged: every change. No commits yet: compared with nothing at all.
+    [ "$oid" = '(initial)' ] && base=$(git hash-object -t tree --stdin < /dev/null)
+    if (( ${#new[@]} == 0 )); then
+        git --no-pager diff "$base"
+        return
+    fi
+    # New files (not ignored ones) show too: marked as to be added, in a copy of the staging area
+    # kept next to it, so the real one is left as it is. (In ~, dgit sees no new files.)
+    path=$(git rev-parse --git-path index) || return
+    case $path in /*|?:*) ;; *) path=$PWD/$path ;; esac # Git reads a relative one from the repo's top
+    index=$path.git_diff
+    if [ -e "$path" ]; then cp "$path" "$index"; else rm -f "$index"; fi && # None yet: Git starts one
+        printf '%s\0' "${new[@]}" > "$index.paths" && # A file, not a pipe: saves a subshell
+        GIT_INDEX_FILE=$index git add --intent-to-add --pathspec-from-file="$index.paths" --pathspec-file-nul &&
+        GIT_INDEX_FILE=$index git --no-pager diff "$base"
+    status=$?
+    rm -f "$index" "$index.paths"
+    return $status
 }
 
 git_fetch() { # Fetches, and follows a remote's HEAD (its default branch) if that changed there
@@ -43,16 +85,34 @@ git_fetch() { # Fetches, and follows a remote's HEAD (its default branch) if tha
 }
 
 git_sync() { # Pushes when you have unpushed commits, otherwise pulls
-    local ahead
-    # Counts commits on this branch that its upstream lacks; local, no network
-    if ahead=$(git rev-list --count '@{upstream}..HEAD' 2> /dev/null); then
-        if (( ahead > 0 )); then
-            git push
-        else
-            git pull --ff-only
-        fi
-    else
+    local out gitdir head= upstream= op=
+    # One call: the repo's folder, then HEAD's commit and its upstream's. With no upstream yet (or
+    # no commits, or no branch) it fails, after the folder: then only that is used.
+    if out=$(git rev-parse --git-dir HEAD '@{upstream}' 2> /dev/null); then
+        head=${out#*$'\n'} upstream=${head#*$'\n'} head=${head%%$'\n'*}
+    fi
+    gitdir=${out%%$'\n'*}
+    if [ -z "$gitdir" ]; then
+        echo "Not in a Git repository."
+        return 1
+    fi
+    # Mid-operation, pushing or pulling only gets in the way (and Git's hints mid-rebase mislead)
+    if [ -d "$gitdir/rebase-merge" ] || [ -d "$gitdir/rebase-apply" ]; then op=rebase
+    elif [ -e "$gitdir/MERGE_HEAD" ]; then op=merge
+    elif [ -e "$gitdir/CHERRY_PICK_HEAD" ]; then op=cherry-pick
+    elif [ -e "$gitdir/REVERT_HEAD" ]; then op=revert
+    fi
+    if [ -n "$op" ]; then
+        echo "A $op is in progress; finish it first."
+        return 1
+    fi
+    # Whether HEAD has commits its upstream lacks, from what was last fetched (no network)
+    if [ -z "$upstream" ]; then
         git push # No upstream yet, so push sets one up (push.autoSetupRemote)
+    elif [ "$head" = "$upstream" ] || git merge-base --is-ancestor "$head" "$upstream"; then
+        git pull --ff-only # Nothing of yours to push (the same, or only behind)
+    else
+        git push
     fi
 }
 
