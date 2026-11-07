@@ -189,6 +189,23 @@
         autocmd FileType netrw setlocal bufhidden=wipe
     augroup end
 
+    " Empty buffers with no name ([No Name]: from :enew, or the one Vim starts with) are wiped
+    " once no window shows them, so they don't pile up. Checked each time you leave one: one that
+    " has text or unsaved changes by then, or a special one (help, terminal, ...), stays as usual.
+    function! s:WipeIfEmpty() abort
+        if bufname('%') ==# '' && &buftype ==# '' && !&modified && line('$') == 1 && getline(1) ==# ''
+            setlocal bufhidden=wipe
+            let b:wipe_if_empty = 1
+        elseif exists('b:wipe_if_empty')
+            setlocal bufhidden=
+            unlet b:wipe_if_empty
+        endif
+    endfunction
+    augroup WipeEmptyBuffers
+        autocmd!
+        autocmd BufLeave * call s:WipeIfEmpty()
+    augroup END
+
     " Set syntax for custom file formats
     au BufReadPost .bash_* set syntax=bash
 
@@ -276,7 +293,22 @@
     cabbrev term Term
 
     " Adding DiffOrig command back if missing
-    command! DiffOrig vert new | set bt=nofile | r ++edit # | 0d_ | diffthis | wincmd p | diffthis
+    " Your file on the left, the saved version on the right, with the cursor there: :bd closes it.
+    " The saved version gets your file's syntax coloring (its syntax only, not its filetype, so no
+    " filetype plugins or FileType autocmds run in it).
+    function! s:DiffOrig() abort
+        let syntax = &syntax
+        vertical rightbelow new
+        setlocal buftype=nofile
+        read ++edit #
+        0delete _
+        let &l:syntax = syntax
+        diffthis
+        wincmd p
+        diffthis
+        wincmd p
+    endfunction
+    command! DiffOrig call s:DiffOrig()
 
 "}}}
 
