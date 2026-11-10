@@ -75,6 +75,11 @@ if [[ $OSTYPE == msys* || $OSTYPE == cygwin* ]]; then
     if [[ $PWD == [A-Za-z]:/* ]]; then
         cd "$(cygpath -u "$PWD")"
     fi
+    # It also passes on its own Vim paths (C:\...), which Git Bash's Vim would use and can't
+    # read; dropping them lets each Vim find its own. A Vim in Git Bash's Vim gets /usr/...
+    if [[ $VIMRUNTIME == [A-Za-z]:\\* ]]; then
+        unset VIM VIMRUNTIME MYVIMRC MYVIMDIR
+    fi
 
 elif [[ $OSTYPE == darwin* ]]; then
 

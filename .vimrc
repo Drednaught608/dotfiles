@@ -80,6 +80,9 @@
 
     " Leader Mappings
     nnoremap <Leader>l :pwd<CR>
+    " Make the buffer's folder the working directory: a file's, or a listing's own (netrw keeps
+    " its folder in b:netrw_curdir; a dirvish listing's name is its folder, ending in a slash)
+    nnoremap <silent> <Leader>h :execute 'cd' fnameescape(exists('b:netrw_curdir') ? b:netrw_curdir : expand('%:p:h'))<Bar>pwd<CR>
     nnoremap <Leader>b :ls<CR>:b<Space>
     nnoremap <Leader>v :DiffOrig<CR>
     nnoremap <Leader>V :windo diffthis<CR>
@@ -173,6 +176,7 @@
     vnoremap <silent> <C-s> :sort<CR>
     " Visual *: search for the selection (xmap, so a plugin's hook on / searches runs too)
     xmap * y/\V<C-R>=escape(@",'/\')<CR>\C<CR>
+    xmap <Leader>* *
     nnoremap U <C-r>
     nnoremap Y ^yg_
     nnoremap J 5j
@@ -321,6 +325,10 @@
             " 9.1.0050+ drops Ctrl+/ otherwise. A variable, not the test_mswin_event() call in
             " :h w32-experimental-keycode-trans-strategy, which gVim resets after this file
             let $VIM_KEYCODE_TRANS_STRATEGY = 'experimental'
+            " The Start menu shortcut starts in scoop's Vim folder: start at home instead
+            if getcwd() =~? 'scoop[/\\]apps[/\\]vim[/\\]'
+                cd ~
+            endif
         elseif has('macunix')
             set guifont=JetBrainsMonoNL-Regular:h13
         else

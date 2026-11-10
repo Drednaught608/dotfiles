@@ -356,9 +356,3 @@ git_commit() { # Commits what you staged, or everything if nothing is staged, of
     eval "${old_trap:-trap - INT}" # Ctrl+C behaves as it did before
     return $status
 }
-
-# In Vim's terminal (Vim sets VIM_TERMINAL), Ctrl+] types git_commit "" with the cursor between
-# the quotes, replacing that key from ~/.inputrc, as Git's editor misbehaves inside Vim.
-if [[ -n "$VIM_TERMINAL" && $- == *i* ]]; then
-    bind '"\C-]": "\C-e\C-u git_commit \"\"\C-b"'
-fi

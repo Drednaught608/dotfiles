@@ -159,7 +159,7 @@ The snippets are part of the dotfiles, but `--add` and `--delete` only change th
 | Ctrl+R | `git_fetch` | fetch, following a change to a remote's default branch |
 | Ctrl+P | `git_sync` | push if you have unpushed commits, otherwise pull |
 
-- **`git_commit [message]`** commits with that message instead of opening the editor. Before committing, it lists files that look like secrets (`.env`, keys, credentials) or junk (`node_modules/`, `.DS_Store`, caches) and offers to leave them out. In Vim's terminal, where Git's editor misbehaves, Ctrl+] types `git_commit ""` for you to fill in the message instead.
+- **`git_commit [message]`** commits with that message instead of opening the editor. Before committing, it lists files that look like secrets (`.env`, keys, credentials) or junk (`node_modules/`, `.DS_Store`, caches) and offers to leave them out.
 - **`git_log [count]`** shows that many commits instead.
 - **`git`** itself is a function: in your home folder it runs `dgit`, except for `git clone`, `git config` and Git's own help.
 
