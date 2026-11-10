@@ -79,6 +79,14 @@
 " Keymappings {{{
 
     " Leader Mappings
+    " A leader that starts no mapping (timeout) does nothing, rather than moving the cursor
+    " right; a second leader or Esc cancels at once, without Esc's own mapping (:noh)
+    nnoremap <Leader> <Nop>
+    xnoremap <Leader> <Nop>
+    nnoremap <Leader><Leader> <Nop>
+    xnoremap <Leader><Leader> <Nop>
+    nnoremap <Leader><Esc> <Nop>
+    xnoremap <Leader><Esc> <Nop>
     nnoremap <Leader>l :pwd<CR>
     " Make the buffer's folder the working directory: a file's, or a listing's own (netrw keeps
     " its folder in b:netrw_curdir; a dirvish listing's name is its folder, ending in a slash)
@@ -313,10 +321,12 @@
 
 " gVim settings {{{
     if has("gui_running")
+        " No blink at 'timeoutlen' (1000): Windows gVim's blink timer can eat the mapping
+        " timeout's timer, leaving a <Leader> pending for seconds
         set gcr=n-v-c:block-Cursor
-            \/lCursor-blinkwait500-blinkon500-blinkoff500,ve:ver35-Cursor,o:hor50-Cursor,i-ci:ver25-Cursor
-            \/lCursor-blinkwait500-blinkon500-blinkoff500,r-cr:hor20-Cursor
-            \/lCursor-blinkwait500-blinkon500-blinkoff500,sm:block-Cursor-blinkwait100-blinkoff500-blinkon500
+            \/lCursor-blinkwait600-blinkon500-blinkoff500,ve:ver35-Cursor,o:hor50-Cursor,i-ci:ver25-Cursor
+            \/lCursor-blinkwait600-blinkon500-blinkoff500,r-cr:hor20-Cursor
+            \/lCursor-blinkwait600-blinkon500-blinkoff500,sm:block-Cursor-blinkwait100-blinkoff500-blinkon500
         highlight Cursor guifg=#222222 guibg=#ffffff
         if has('win64') || has('win32') || has('win16')
             set guifont=JetBrains\ Mono\ NL:h13:cANSI:qDRAFT
