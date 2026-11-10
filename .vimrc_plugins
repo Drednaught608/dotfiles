@@ -42,16 +42,15 @@
     Plug 'junegunn/goyo.vim'
     Plug 'markonm/traces.vim'
     Plug 'tpope/vim-commentary'
+    Plug 'justinmk/vim-dirvish'
     Plug 'tpope/vim-dispatch'
     Plug 'tpope/vim-fugitive'
     Plug 'airblade/vim-gitgutter'
     Plug 'ludovicchabant/vim-gutentags'
     Plug 'machakann/vim-highlightedyank'
     Plug 'RRethy/vim-illuminate'
-    Plug 'google/vim-searchindex'
     Plug 'tpope/vim-sleuth'
     Plug 'tpope/vim-surround'
-    Plug 'tpope/vim-vinegar'
 
     call plug#end()
 
@@ -65,11 +64,89 @@
     if !empty(glob(plugin_dir . "vim-fugitive"))
         cabbrev git Git
     endif
-    if !empty(glob(plugin_dir . "vim-searchindex"))
-        set shortmess+=S
-    endif
     if !empty(glob(plugin_dir . "vim-highlightedyank"))
         let g:highlightedyank_highlight_duration = 200
+    endif
+    if !empty(glob(plugin_dir . "vim-dirvish"))
+        " Dirvish in place of netrw, with netrw's :Explore commands as netrw's code does them
+        " (<Leader>e uses :Explore). Sizes: [N] or g:netrw_winsize (default 50), a percent of the
+        " window, or lines/columns if negative. Sides: g:netrw_alto/altv ('splitbelow'/'splitright').
+        let g:loaded_netrwPlugin = 1
+        " gx opens the URL or file under the cursor; Vims from before 2025 had it from netrw
+        if empty(globpath(&runtimepath, 'plugin/openPlugin.vim'))
+            function! s:Gx() abort
+                let url = matchstr(expand('<cWORD>'), '\%(\%(http\|ftp\|irc\)s\?\|file\)://\S\{-}\ze[^A-Za-z0-9/]*$')
+                let opener = has('win32') || has('win32unix') ? 'explorer' : has('mac') ? 'open' : 'xdg-open'
+                if !executable(opener)
+                    echohl ErrorMsg | echomsg 'gx: ' . opener . ' not found' | echohl None
+                    return
+                endif
+                call job_start([opener, empty(url) ? expand('<cfile>') : url],
+                    \ {'stoponexit': '', 'in_io': 'null', 'out_io': 'null', 'err_io': 'null'})
+            endfunction
+            nnoremap <silent> gx :call <SID>Gx()<CR>
+        endif
+        function! s:Size(count, length) abort
+            let size = a:count > 0 ? a:count : get(g:, 'netrw_winsize', 50)
+            let size = size > 0 ? size * a:length / 100 : -size
+            return size == 0 ? '' : size
+        endfunction
+        function! s:Explore(count, style, dir) abort
+            let alto = get(g:, 'netrw_alto', &splitbelow)
+            let altv = get(g:, 'netrw_altv', &splitright)
+            if a:style =~# '^[SH]$\|^H!$'  " :Sex, :Hex: one side; :Hex!: the other
+                let below = a:style ==# 'H!' ? !alto : alto
+                execute 'noswapfile' (below ? 'below' : 'above') s:Size(a:count, winheight(0)) . 'wincmd s'
+            else  " :Sex!, :Vex: one side; :Vex!: the other
+                let right = a:style ==# 'V!' ? !altv : altv
+                execute 'noswapfile' (right ? 'rightbelow' : 'leftabove') s:Size(a:count, winwidth(0)) . 'wincmd v'
+            endif
+            execute 'silent Dirvish' a:dir
+        endfunction
+        command! -bar -bang -count=0 -nargs=* -complete=dir Explore Dirvish <args>
+        command! -bar -bang -count=0 -nargs=* -complete=dir Sexplore call s:Explore(<count>, 'S' . (<bang>0 ? '!' : ''), <q-args>)
+        command! -bar -bang -count=0 -nargs=* -complete=dir Hexplore call s:Explore(<count>, 'H' . (<bang>0 ? '!' : ''), <q-args>)
+        command! -bar -bang -count=0 -nargs=* -complete=dir Vexplore call s:Explore(<count>, 'V' . (<bang>0 ? '!' : ''), <q-args>)
+        command! -bar -count=0 -nargs=* -complete=dir Texplore tab split | silent Dirvish <args>
+        command! -bar -bang -count=0 -nargs=* -complete=dir Lexplore call s:Lexplore(<count>, <bang>0, <q-args>)
+        " :Lex toggles a full-height drawer on the left (! on the right) on the working directory,
+        " sized like the splits but from window 1; closing it saves its width in g:netrw_winsize,
+        " as netrw does. :Lex [dir] while it's open shows [dir] in it. Enter in it opens a file in
+        " the window beside it.
+        function! s:Lexplore(count, right, dir) abort
+            let drawer = 0
+            for win in range(1, winnr('$'))
+                if getwinvar(win, 'dirvish_drawer')
+                    let drawer = win
+                endif
+            endfor
+            if drawer && !empty(a:dir)
+                execute drawer . 'wincmd w'
+                execute 'silent Dirvish' a:dir
+                wincmd p
+            elseif drawer
+                let g:netrw_winsize = -winwidth(drawer)
+                execute drawer . 'close'
+            else
+                execute (a:right ? 'botright' : 'topleft') 'vertical' s:Size(a:count, winwidth(1)) 'new'
+                let w:dirvish_drawer = 1
+                setlocal winfixwidth
+                execute 'silent Dirvish' (empty(a:dir) ? fnameescape(getcwd()) : a:dir)
+            endif
+        endfunction
+        function! s:DirvishOpen() abort
+            if !empty(get(w:, 'dirvish_drawer', '')) && !isdirectory(getline('.'))
+                call dirvish#open('p', 0)
+            else
+                call dirvish#open('edit', 0)
+            endif
+        endfunction
+        augroup DirvishSettings
+            autocmd!
+            autocmd FileType dirvish nnoremap <buffer><silent> <CR> :<C-U>call <SID>DirvishOpen()<CR>
+            " Unlist a listing once you leave it; Dirvish keeps one listed if it's the only buffer
+            autocmd BufLeave * if exists('b:dirvish') | setlocal nobuflisted | endif
+        augroup END
     endif
     if !empty(glob(plugin_dir . "vim-gutentags"))
         let g:gutentags_cache_dir = expand('~/.cache/tags')

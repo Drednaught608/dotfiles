@@ -56,6 +56,7 @@
     if exists('+belloff') | set belloff=all | endif
     if exists('+packpath') | set packpath=~/.vim,$VIM/vimfiles,$VIMRUNTIME,$VIM/vimfiles/after,~/.vim/after | endif
     if exists('+termguicolors') && !has('macunix') | set termguicolors | endif
+    if exists('+maxsearchcount') | set maxsearchcount=9999 | endif
 
     " Definitions & Misc.
     let mapleader = " "
@@ -189,9 +190,7 @@
         autocmd FileType netrw setlocal bufhidden=wipe
     augroup end
 
-    " Empty buffers with no name ([No Name]: from :enew, or the one Vim starts with) are wiped
-    " once no window shows them, so they don't pile up. Checked each time you leave one: one that
-    " has text or unsaved changes by then, or a special one (help, terminal, ...), stays as usual.
+    " Wipe empty [No Name] buffers once no window shows them
     function! s:WipeIfEmpty() abort
         if bufname('%') ==# '' && &buftype ==# '' && !&modified && line('$') == 1 && getline(1) ==# ''
             setlocal bufhidden=wipe
@@ -212,13 +211,12 @@
     " Git commit detection for easy save or quitting
     augroup GitCommitKeys
         autocmd!
-        " No swap file for commit messages, so a force quit leaves nothing to warn about, and
-        " one left from before is deleted quietly (its check comes before the file type is known)
+        " No swap file for commit messages; delete a leftover one quietly
         autocmd FileType gitcommit setlocal noswapfile
         autocmd SwapExists COMMIT_EDITMSG,MERGE_MSG,SQUASH_MSG,TAG_EDITMSG let v:swapchoice = 'd'
-        autocmd FileType gitcommit startinsert! " At the end of the line, as A does: after an amend's message
+        autocmd FileType gitcommit startinsert! " At the end of the line, like A
         autocmd FileType gitcommit setlocal spell spelllang=en_us
-        " Spelling in plain colors: the theme's undercurl is one many terminals can't draw
+        " Plain underlines: many terminals can't draw undercurl
         autocmd FileType gitcommit highlight SpellBad cterm=bold,underline ctermfg=203 ctermbg=NONE gui=bold,underline guifg=#ff5f5f guibg=NONE guisp=NONE
         autocmd FileType gitcommit highlight SpellCap cterm=underline ctermfg=221 ctermbg=NONE gui=underline guifg=#ffd75f guibg=NONE guisp=NONE
         autocmd FileType gitcommit highlight SpellRare cterm=underline ctermfg=221 ctermbg=NONE gui=underline guifg=#ffd75f guibg=NONE guisp=NONE
@@ -292,10 +290,8 @@
     cabbrev terminal Terminal
     cabbrev term Term
 
-    " Adding DiffOrig command back if missing
-    " Your file on the left, the saved version on the right, with the cursor there: :bd closes it.
-    " The saved version gets your file's syntax coloring (its syntax only, not its filetype, so no
-    " filetype plugins or FileType autocmds run in it).
+    " DiffOrig: the saved version on the right, cursor in it (:bd closes it), colored with your
+    " file's syntax (not its filetype, so FileType autocmds don't run there)
     function! s:DiffOrig() abort
         let syntax = &syntax
         vertical rightbelow new
@@ -321,9 +317,11 @@
         highlight Cursor guifg=#222222 guibg=#ffffff
         if has('win64') || has('win32') || has('win16')
             set guifont=JetBrains\ Mono\ NL:h13:cANSI:qDRAFT
-            " Its terminal runs through Windows' ConPTY, which turns Ctrl+H into Backspace,
-            " so send the escape code ~/.inputrc binds instead
+            " ConPTY turns Ctrl+H into Backspace: send the code ~/.inputrc binds
             tnoremap <C-h> <Esc>[104;5u
+            " 9.1.0050+ drops Ctrl+/ otherwise. A variable, not the test_mswin_event() call in
+            " :h w32-experimental-keycode-trans-strategy, which gVim resets after this file
+            let $VIM_KEYCODE_TRANS_STRATEGY = 'experimental'
         elseif has('macunix')
             set guifont=JetBrainsMonoNL-Regular:h13
         else
@@ -342,8 +340,7 @@
 
 " Misc. {{{
 
-    " Custom plugin settings sourced if it exists, and this Vim is new enough for all of
-    " it: 8.0.1394, for vim-highlightedyank (TextYankPost), the newest any plugin needs.
+    " Plugins need 8.0.1394 (TextYankPost, for vim-highlightedyank)
     if has('patch-8.0.1394') && filereadable(expand("~/.vimrc_plugins"))
         source ~/.vimrc_plugins
     endif
