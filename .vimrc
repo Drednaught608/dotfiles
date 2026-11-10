@@ -45,6 +45,13 @@
     if !isdirectory(expand($HOME . '/.vim/swap'))
         call mkdir(expand($HOME . '/.vim/swap'), 'p')
     endif
+    " Only ask about a swap file with unsaved changes (8.1.1231 deletes stale clean ones)
+    if has('patch-8.1.1231')
+        augroup SwapPrompt
+            autocmd!
+            autocmd SwapExists * if !get(swapinfo(v:swapname), 'dirty', 1) | let v:swapchoice = 'e' | endif
+        augroup END
+    endif
     if executable("rg")
         set grepprg=rg\ --vimgrep
     endif
@@ -87,6 +94,11 @@
     xnoremap <Leader><Leader> <Nop>
     nnoremap <Leader><Esc> <Nop>
     xnoremap <Leader><Esc> <Nop>
+    " Backspace and Delete do nothing outside Insert mode (so they also cancel a leader)
+    nnoremap <BS> <Nop>
+    xnoremap <BS> <Nop>
+    nnoremap <Del> <Nop>
+    xnoremap <Del> <Nop>
     nnoremap <Leader>l :pwd<CR>
     " Make the buffer's folder the working directory: a file's, or a listing's own (netrw keeps
     " its folder in b:netrw_curdir; a dirvish listing's name is its folder, ending in a slash)
@@ -132,6 +144,7 @@
     nnoremap <silent> <Leader>W :w<CR>:!dos2unix "%"<CR><CR>
     nnoremap <silent> <Leader>q :q<CR>
     nnoremap <silent> <Leader>Q :qall!<CR>
+    nnoremap <Leader><CR> :make<CR>
     nnoremap <silent> <Leader>c :call ToggleQuickFix()<CR>
     nnoremap <silent> <Leader>C :cclose<CR>:silent cfdo bdelete<CR>:silent cfirst<CR>:silent bdelete<CR>
     if !exists(':cfdo')
