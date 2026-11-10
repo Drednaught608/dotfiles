@@ -32,6 +32,8 @@
 	insteadOf = https://github.com/
 [commit]
 	gpgSign = true
+[blame]
+	date = format-local:%Y-%m-%d %I:%M %p
 [undoredo]
 	scope = edit        # edit | global
 	log   = full        # full | compact

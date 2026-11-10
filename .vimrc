@@ -290,11 +290,11 @@
     cabbrev terminal Terminal
     cabbrev term Term
 
-    " DiffOrig: the saved version on the right, cursor in it (:bd closes it), colored with your
-    " file's syntax (not its filetype, so FileType autocmds don't run there)
+    " DiffOrig, with the saved version colored by your file's syntax (not its filetype, so
+    " FileType autocmds don't run there)
     function! s:DiffOrig() abort
         let syntax = &syntax
-        vertical rightbelow new
+        vertical new
         setlocal buftype=nofile
         read ++edit #
         0delete _
@@ -302,7 +302,6 @@
         diffthis
         wincmd p
         diffthis
-        wincmd p
     endfunction
     command! DiffOrig call s:DiffOrig()
 

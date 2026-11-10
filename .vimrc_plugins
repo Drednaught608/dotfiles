@@ -63,6 +63,42 @@
     " Settings
     if !empty(glob(plugin_dir . "vim-fugitive"))
         cabbrev git Git
+        " Blame beside the file with both cursors on the same line; again to close it
+        function! s:GitBlame() abort
+            for win in range(1, winnr('$'))
+                if getbufvar(winbufnr(win), '&filetype') ==# 'fugitiveblame'
+                    execute win . 'close'
+                    return
+                endif
+            endfor
+            Git blame
+            if &filetype !=# 'fugitiveblame'  " Fugitive gives no blame, silently, for an untracked file
+                echohl ErrorMsg | echomsg 'No blame for ' . expand('%:t') . ': is it tracked by Git?' | echohl None
+                return
+            endif
+            " Fugitive fits it to the details; at most half of what it and the file have
+            execute 'vertical resize' min([winwidth(0), (winwidth(0) + winwidth(winnr('#'))) / 2])
+            let w:blame_cursorbind = &l:cursorbind
+            setlocal cursorbind
+            augroup GitBlame
+                autocmd! * <buffer>
+                autocmd BufWinLeave <buffer> call s:GitBlameUnbind()
+            augroup END
+            wincmd p  " Back to the file
+            let w:blame_cursorbind = &l:cursorbind
+            setlocal cursorbind
+        endfunction
+        " However the blame closes (<Leader>gb, gq, :q), put back the windows' own cursorbind
+        " (a diff keeps its own)
+        function! s:GitBlameUnbind() abort
+            for win in range(1, winnr('$'))
+                let was = getwinvar(win, 'blame_cursorbind', -1)
+                if was != -1
+                    call setwinvar(win, '&cursorbind', was)
+                    call setwinvar(win, 'blame_cursorbind', -1)
+                endif
+            endfor
+        endfunction
     endif
     if !empty(glob(plugin_dir . "vim-highlightedyank"))
         let g:highlightedyank_highlight_duration = 200
@@ -190,6 +226,9 @@
         nnoremap <silent> <Leader>gp :GitGutterPreviewHunk<CR><C-w>j
         nnoremap <silent> <Leader>gu :GitGutterUndoHunk<CR>
         nnoremap <silent> <Leader>gv :GitGutterDiffOrig<CR>
+    endif
+    if !empty(glob(plugin_dir . "vim-fugitive"))
+        nnoremap <silent> <Leader>gb :call <SID>GitBlame()<CR>
     endif
 
 "}}}
