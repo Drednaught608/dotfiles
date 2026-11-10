@@ -56,7 +56,6 @@
     if exists('+belloff') | set belloff=all | endif
     if exists('+packpath') | set packpath=~/.vim,$VIM/vimfiles,$VIMRUNTIME,$VIM/vimfiles/after,~/.vim/after | endif
     if exists('+termguicolors') && !has('macunix') | set termguicolors | endif
-    if exists('+maxsearchcount') | set maxsearchcount=9999 | endif
 
     " Definitions & Misc.
     let mapleader = " "
@@ -86,10 +85,9 @@
     nnoremap <Leader>V :windo diffthis<CR>
     nnoremap <Leader>r viw"hy:%s/<C-r>h\C//g<left><left>
     nnoremap <Leader>R viW"hy:%s/<C-r>h\C//g<left><left>
-    vnoremap <Leader>r "hy:%s/<C-r>h\C//g<left><left>
-    vnoremap <Leader>* y/\V<C-R>=escape(@",'/\')<CR>\C<CR>
-    vnoremap <Leader>y "+y
-    vnoremap <Leader>Y "+Y
+    xnoremap <Leader>r "hy:%s/<C-r>h\C//g<left><left>
+    xnoremap <Leader>y "+y
+    xnoremap <Leader>Y "+Y
     nnoremap <silent> <Leader>m :set cursorline!<CR>
     nnoremap <silent> <Leader>n :call ToggleNumberLines("all")<CR>
     nnoremap <silent> <Leader>N :call ToggleNumberLines("friendly")<CR>
@@ -114,10 +112,10 @@
     nnoremap <silent> <Leader>Y ^"+yg_
     nnoremap <silent> <Leader>p "+p
     nnoremap <silent> <Leader>P "+P
-    vnoremap <silent> <Leader>p "+p
-    vnoremap <silent> <Leader>P "+P
+    xnoremap <silent> <Leader>p "+p
+    xnoremap <silent> <Leader>P "+P
     nnoremap <silent> <Leader>k K
-    vnoremap <silent> <Leader>k K
+    xnoremap <silent> <Leader>k K
     nnoremap <silent> <Leader>L :silent %s/\r//g<CR>:noh<CR><C-o>
     nnoremap <silent> <Leader>w :w<CR>
     nnoremap <silent> <Leader>W :w<CR>:!dos2unix "%"<CR><CR>
@@ -173,12 +171,14 @@
     vnoremap <C-down> :m '>+1<CR>gv=gv
     vnoremap <C-up> :m '<-2<CR>gv=gv
     vnoremap <silent> <C-s> :sort<CR>
+    " Visual *: search for the selection (xmap, so a plugin's hook on / searches runs too)
+    xmap * y/\V<C-R>=escape(@",'/\')<CR>\C<CR>
     nnoremap U <C-r>
     nnoremap Y ^yg_
     nnoremap J 5j
     nnoremap K 5k
-    vnoremap J 5j
-    vnoremap K 5k
+    xnoremap J 5j
+    xnoremap K 5k
 
 "}}}
 

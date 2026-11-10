@@ -49,6 +49,7 @@
     Plug 'ludovicchabant/vim-gutentags'
     Plug 'machakann/vim-highlightedyank'
     Plug 'RRethy/vim-illuminate'
+    Plug 'google/vim-searchindex'
     Plug 'tpope/vim-sleuth'
     Plug 'tpope/vim-surround'
 
@@ -99,6 +100,12 @@
                 endif
             endfor
         endfunction
+    endif
+    if !empty(glob(plugin_dir . "vim-searchindex"))
+        set shortmess+=S
+        " It maps * only if * has no mapping in any mode, and the .vimrc's Visual * blocks that:
+        " give Normal mode * its version here (its <Plug> maps resolve once it has loaded)
+        nmap * <Plug>ImprovedStar_*<Plug>SearchIndex
     endif
     if !empty(glob(plugin_dir . "vim-highlightedyank"))
         let g:highlightedyank_highlight_duration = 200
