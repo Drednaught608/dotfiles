@@ -1,6 +1,8 @@
 # dotfiles
 
-My dotfiles, managed with [`dgit`](../.local/scripts/dgit): a bare Git repo whose work tree is `$HOME`. The scripts and shell functions that come with them are in [SCRIPTS.md](SCRIPTS.md).
+My dotfiles, managed with [`dgit`](../.local/scripts/dgit) (Dotfiles Git): a bare Git repo whose work tree is `$HOME`.
+
+**Scripts and shell functions:** [SCRIPTS.md](SCRIPTS.md)
 
 ## Install
 

@@ -1,5 +1,7 @@
 # Scripts
 
+**Installing and using the dotfiles:** [README.md](README.md)
+
 The scripts that come with the dotfiles live in [`~/.local/scripts`](../.local/scripts), which `.bashrc` puts on your `PATH`. Each one prints its own usage with `--help`. Shell functions live in [`~/.local/bash`](../.local/bash), which `.bashrc` loads.
 
 - [dgit](#dgit): the dotfiles repo
@@ -13,7 +15,7 @@ The scripts that come with the dotfiles live in [`~/.local/scripts`](../.local/s
 
 ## dgit
 
-[`dgit`](../.local/scripts/dgit) runs Git against your home folder. Its repo is a bare one in `~/.local/share/dgit` (or `$DGIT_DIR`), with `$HOME` as the work tree.
+[`dgit`](../.local/scripts/dgit) (Dotfiles Git) runs Git against your home folder. Its repo is a bare one in `~/.local/share/dgit` (or `$DGIT_DIR`), with `$HOME` as the work tree.
 
 ```bash
 dgit init            # create the repo

@@ -1,0 +1,9 @@
+Windows Registry Editor Version 5.00
+
+[-HKEY_CURRENT_USER\Software\Classes\*\shell\Edit with &Vim]
+[-HKEY_CURRENT_USER\Software\Classes\*\shell\Edit with &Vim\command]
+
+[-HKEY_CURRENT_USER\Software\Classes\Directory\shell\Open in &Vim]
+[-HKEY_CURRENT_USER\Software\Classes\Directory\shell\Open in &Vim\command]
+[-HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\Open in &Vim]
+[-HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\Open in &Vim\command]
