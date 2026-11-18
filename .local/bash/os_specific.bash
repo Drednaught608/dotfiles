@@ -81,6 +81,13 @@ if [[ $OSTYPE == msys* || $OSTYPE == cygwin* ]]; then
         unset VIM VIMRUNTIME MYVIMRC MYVIMDIR
     fi
 
+    # Scoop's Vim over Git Bash's: the same Windows build as gVim, so both name swap files
+    # alike and see each other's. Its shims folder, not its own: that has diff, tee and
+    # install too, which would hide Git Bash's
+    if [ -x ~/scoop/shims/vim.exe ]; then
+        PATH=$HOME/scoop/shims:$PATH
+    fi
+
 elif [[ $OSTYPE == darwin* ]]; then
 
     # MacOS Aliases

@@ -10,6 +10,9 @@
     set number
     set relativenumber
     set clipboard=
+    set mouse=
+    set nrformats-=octal
+    let &statusline = '%f%h%m%r [%{&ff}]%{getftime(expand("%:p")) < 0 ? "" : strftime(" (%H:%M %d/%m/%Y)", getftime(expand("%:p")))}%=%l,%c%V %P'
     set shiftwidth=4
     set tabstop=4
     set softtabstop=4
@@ -45,11 +48,21 @@
     if !isdirectory(expand($HOME . '/.vim/swap'))
         call mkdir(expand($HOME . '/.vim/swap'), 'p')
     endif
-    " Only ask about a swap file with unsaved changes (8.1.1231 deletes stale clean ones)
+    " Never ask about swap files; warn if one has unsaved changes (8.1.1231 drops clean ones)
     if has('patch-8.1.1231')
-        augroup SwapPrompt
+        " echomsg, not echo: fits one line (no Enter) and stays in :messages
+        function! s:SwapWarn(swap, ...) abort
+            " Skip if a later SwapExists deleted it (our own swap file reuses the name)
+            if get(swapinfo(a:swap), 'pid', getpid()) != getpid()
+                redraw | echohl WarningMsg | echomsg 'Swap file has unsaved changes (:recover)' | echohl None
+            endif
+        endfunction
+        augroup SwapCheck
             autocmd!
-            autocmd SwapExists * if !get(swapinfo(v:swapname), 'dirty', 1) | let v:swapchoice = 'e' | endif
+            autocmd SwapExists * let v:swapchoice = 'e'
+                \ | if get(swapinfo(v:swapname), 'dirty', 1)
+                \ |     call timer_start(0, function('s:SwapWarn', [v:swapname]))
+                \ | endif
         augroup END
     endif
     if executable("rg")
@@ -171,6 +184,9 @@
     nnoremap <silent> <C-P> :cprevious<CR>zv
     nnoremap <C-d> <C-d>zz
     nnoremap <C-u> <C-u>zz
+    " Jump to a tag, or list its matches when there are several
+    nnoremap <C-]> g<C-]>
+    xnoremap <C-]> g<C-]>
     noremap <S-ScrollWheelUp> 8zh
     noremap <S-ScrollWheelDown> 8zl
     noremap <C-h> <C-w>h
@@ -232,6 +248,17 @@
 
     " Set syntax for custom file formats
     au BufReadPost .bash_* set syntax=bash
+
+    " Reopen files where you left off (defaults.vim does, but a vimrc skips it), except
+    " git's commit, rebase and patch edits. On first display, not BufReadPost: plug#end
+    " re-adds filetype detection after this, so the filetype isn't set yet at that point
+    " Git Bash's /etc/vimrc adds its own version, whose exceptions miss for that reason
+    autocmd! BufReadPost *
+    augroup RestoreCursor
+        autocmd!
+        autocmd BufWinEnter * if !exists('b:restored') && line("'\"") >= 1 && line("'\"") <= line('$')
+            \ && &filetype !~# 'commit\|rebase\|diff' | execute 'normal! g`"' | endif | let b:restored = 1
+    augroup END
 
     " Git commit detection for easy save or quitting
     augroup GitCommitKeys
