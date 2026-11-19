@@ -141,9 +141,9 @@
     nnoremap <silent> <Leader>gO :silent edit ~/.vimrc_plugins<CR>
     nnoremap <silent> <Leader>i :silent enew<CR>
     nnoremap <silent> <Leader>I :silent tabnew<CR>
-    nnoremap <silent> <Leader>d :silent bdelete<CR>
-    nnoremap <silent> <Leader>D :silent bdelete!<CR>
-    nnoremap <silent> <Leader>B :bufdo bdelete<CR>
+    nnoremap <silent> <Leader>d :call QuietBdelete('bdelete')<CR>
+    nnoremap <silent> <Leader>D :call QuietBdelete('bdelete!')<CR>
+    nnoremap <silent> <Leader>B :call QuietBdelete('bufdo bdelete')<CR>
     nnoremap <silent> <Leader>y "+y
     nnoremap <silent> <Leader>Y ^"+yg_
     nnoremap <silent> <Leader>p "+p
@@ -159,7 +159,7 @@
     nnoremap <silent> <Leader>Q :qall!<CR>
     nnoremap <Leader><CR> :make<CR>
     nnoremap <silent> <Leader>c :call ToggleQuickFix()<CR>
-    nnoremap <silent> <Leader>C :cclose<CR>:silent cfdo bdelete<CR>:silent cfirst<CR>:silent bdelete<CR>
+    nnoremap <silent> <Leader>C :cclose<CR>:call QuietBdelete('cfdo bdelete')<CR>:silent cfirst<CR>:call QuietBdelete('bdelete')<CR>
     if !exists(':cfdo')
         nnoremap <silent> <Leader>C :echo "Vim cfdo is not supported."<CR>
     endif
@@ -257,7 +257,7 @@
     augroup RestoreCursor
         autocmd!
         autocmd BufWinEnter * if !exists('b:restored') && line("'\"") >= 1 && line("'\"") <= line('$')
-            \ && &filetype !~# 'commit\|rebase\|diff' | execute 'normal! g`"' | endif | let b:restored = 1
+            \ && &filetype !~# 'commit\|rebase\|diff' | execute 'normal! g`"zz' | endif | let b:restored = 1
     augroup END
 
     " Git commit detection for easy save or quitting
@@ -295,6 +295,16 @@
         if winnr('$') == windows
             silent copen
         endif
+    endfunction
+
+    " Buffer delete without the file message for the empty buffer left after the last one
+    function! QuietBdelete(cmd)
+        set shortmess+=F
+        try
+            execute 'silent' a:cmd
+        finally
+            set shortmess-=F
+        endtry
     endfunction
 
     " Line number toggle with different modes for friendly line view or hiding all
