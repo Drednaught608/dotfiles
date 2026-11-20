@@ -82,11 +82,21 @@ if [[ $OSTYPE == msys* || $OSTYPE == cygwin* ]]; then
     fi
 
     # Scoop's Vim over Git Bash's: the same Windows build as gVim, so both name swap files
-    # alike and see each other's. Its shims folder, not its own: that has diff, tee and
-    # install too, which would hide Git Bash's
-    if [ -x ~/scoop/shims/vim.exe ]; then
-        PATH=$HOME/scoop/shims:$PATH
+    # alike and see each other's. Called by its path: Scoop's shim for it fails over SSH,
+    # and its folder can't go on PATH (its diff, tee and install would hide Git Bash's).
+    # Through the version folder that Scoop's current link points to: over SSH, files
+    # reached through that link look like empty folders
+    scoop_vim=$(readlink -f ~/scoop/apps/vim/current)/vim.exe
+    if [ -f "$scoop_vim" ]; then
+        alias vim="$scoop_vim" vi="$scoop_vim" view="$scoop_vim -R" vimdiff="$scoop_vim -d"
+        export GIT_EDITOR=$scoop_vim # Git runs core.editor (vim) by PATH, past the aliases
     fi
+    # Scoop's ctags too, as gVim's gutentags uses: its folder has only ctags and readtags
+    scoop_ctags=$(readlink -f ~/scoop/apps/universal-ctags/current)
+    if [ -f "$scoop_ctags/ctags.exe" ]; then
+        PATH=$scoop_ctags:$PATH
+    fi
+    unset scoop_vim scoop_ctags
 
 elif [[ $OSTYPE == darwin* ]]; then
 
