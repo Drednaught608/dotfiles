@@ -67,6 +67,9 @@ if [[ $OSTYPE == msys* || $OSTYPE == cygwin* ]]; then
         # Windows' SSH server clears the screen as you log in, but whether that also clears
         # the scrollback depends on the Windows version; clear both, the same everywhere
         clear
+        # Its console sets the terminal's title to its own path (C:\WINDOWS\system32\conhost.exe),
+        # replacing the host name your SSH app shows; set it back at each prompt
+        PS1='\[\e]0;\h\a\]'$PS1
     fi
 
     # Windows' own Vim (gVim or console) starts its terminal's Bash in a folder written the
