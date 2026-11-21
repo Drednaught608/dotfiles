@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# send - send files to one of your devices with Tailscale's Taildrop.
+#
+#   send <device> <file>...
+#
+# <device> is its name in your tailnet (or its Tailscale IP). Taildrop sends
+# only to your own devices, and only while they're online; on the device, the
+# files arrive where Taildrop puts them (Downloads, or its Taildrop prompt).
+
+die() { echo "send: $*" >&2; exit 1; }
+usage() { printf 'send: %s\nusage: send <device> <file>...\n' "$*" >&2; exit 2; }
+
+# The devices Taildrop can send to, one per line: "<ip><tab><name>", then
+# "<tab>offline; ..." for one that's offline
+targets() { tailscale file cp --targets; }
+
+case ${1-} in
+  '' | -h | --help)
+    # This file's header, then your devices, built first and printed at once.
+    # Bash's own read, not sed or awk: each program started costs time on Windows
+    out=()
+    while IFS= read -r line && [[ $line == \#* ]]; do
+      [[ $line == '#!'* ]] || { line=${line#\#}; out+=("${line# }"); }
+    done < "$0"
+    out+=('')
+    if ! command -v tailscale > /dev/null; then
+      out+=("Tailscale isn't installed: https://tailscale.com/download")
+    elif ! list=$(targets); then
+      out+=("Couldn't ask Tailscale for your devices (is it running and logged in?)")
+    elif [ -z "$list" ]; then
+      out+=('No devices to send to yet.')
+    else
+      # One line for the online ones, which you can send to now, and one for the offline
+      # ones, in gray on a terminal (where the online label is bold)
+      bold= gray= plain=
+      [ -t 1 ] && bold=$'\e[1m' gray=$'\e[90m' plain=$'\e[0m'
+      online= offline=
+      while IFS=$'\t' read -r ip name state; do
+        if [[ $state == offline* ]]; then offline+=", $name"; else online+=", $name"; fi
+      done <<< "$list"
+      online=${online#, } offline=${offline#, }
+      out+=("${bold}Devices online:$plain ${online:-none}" "${gray}Devices offline: ${offline:-none}$plain")
+    fi
+    printf '%s\n' "${out[@]}"
+    exit ;;
+  -*) usage "unknown option '$1'" ;;
+esac
+(( $# >= 2 )) || usage "give a device and at least one file"
+
+command -v tailscale > /dev/null ||
+  die "needs Tailscale's tailscale command; install Tailscale: https://tailscale.com/download"
+
+device=$1
+shift
+for f; do
+  [ -f "$f" ] || die "'$f' isn't a file"
+done
+
+list=$(targets) || die "couldn't ask Tailscale for your devices (is it running and logged in?)"
+found= names=
+while IFS=$'\t' read -r ip name state; do
+  names+=" $name"
+  [[ $device == "$ip" || $device == "$name" ]] && found=1 status=$state
+done <<< "$list"
+[ -n "$found" ] || die "no device '$device' in your tailnet to send to; yours are:${names:- none}"
+[[ $status != offline* ]] || die "'$device' is $status"
+
+tailscale file cp "$@" "$device:"

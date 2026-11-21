@@ -10,6 +10,7 @@ The scripts that come with the dotfiles live in [`~/.local/scripts`](../.local/s
 - [update_ssh](#update_ssh): the SSH key
 - [update_terminal](#update_terminal): Windows Terminal's settings and the fonts
 - [snip](#snip): file snippets for new projects
+- [send](#send): send files to your devices with Taildrop
 - [Git keys and functions](#git-keys-and-functions)
 - [Other shell additions](#other-shell-additions)
 
@@ -145,6 +146,17 @@ snip --track                          # stage ~/.config/snip in dgit, to commit 
 Nothing is overwritten unless you add `-f` (`--force`), as in `snip makefile -f` or `snip -f makefile --add Makefile`. Copying skips each file that's already in the current directory and copies the rest, then lists what it `Skipped:` and `Created:`. `--add` won't replace a file or folder that's already there. With `-f`, both replace what's there.
 
 The snippets are part of the dotfiles, but `--add` and `--delete` only change the files; run `snip --track` when you want to commit them. It stages every file in `~/.config/snip` in `dgit`, including any a snippet's own `.gitignore` would ignore (since that's part of the snippet), with executable files as executable, and the removal of any snippets you've deleted.
+
+## send
+
+[`send`](../.local/scripts/send) sends files to one of your devices with Tailscale's Taildrop (`tailscale file cp`).
+
+```bash
+send                              # show how to use it, and your devices
+send iphone notes.txt photo.jpg   # send these files to the device named iphone in your tailnet
+```
+
+The device is its name in your tailnet, or its Tailscale IP. Before sending, `send` checks that each file exists, that the device is one Taildrop can send to (and lists yours if it isn't), and that it's online, since Taildrop only sends to online devices. Without Tailscale's `tailscale` command, it says to install Tailscale. On Linux, Tailscale may need `sudo tailscale set --operator=$USER` once before you can send without `sudo`.
 
 ## Git keys and functions
 
