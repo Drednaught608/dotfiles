@@ -184,9 +184,6 @@
     nnoremap <silent> <C-P> :cprevious<CR>zv
     nnoremap <C-d> <C-d>zz
     nnoremap <C-u> <C-u>zz
-    " Jump to a tag, or list its matches when there are several
-    nnoremap <C-]> g<C-]>
-    xnoremap <C-]> g<C-]>
     noremap <S-ScrollWheelUp> 8zh
     noremap <S-ScrollWheelDown> 8zl
     noremap <C-h> <C-w>h
